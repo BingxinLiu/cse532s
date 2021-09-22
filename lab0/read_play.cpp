@@ -23,26 +23,35 @@ struct Structured_line
     name_text_pair pair_;
     Structured_line(index idx, name_text_pair pair) : idx_(idx), pair_(pair) {}
 };
-
 class Play
 {
     std::string play_name_;
-    structuered_lines* structured_lines_;
+    structuered_lines structured_lines_;
     mutable std::mutex m;
 public:
-    Play(std::string play_name) : play_name_(play_name)
-    {
-        structured_lines_ = new structuered_lines();
-    }
+    Play(std::string play_name) : play_name_(play_name) {}
     Play& operator=(const Play&) = delete;
 
     Play& operator<< (Structured_line line);
     void print(std::ostream& os);
 
 };
+class thread_guard
+{
+    std::thread& t;
+public:
+    explicit thread_guard(std::thread& t_):t(t_) {}
+    ~thread_guard()
+    {
+        if(t.joinable()) t.join();
+    }
+    thread_guard(thread_guard const&)=delete;
+    thread_guard& operator=(thread_guard const&)=delete;
+};
 
 void read_thread(Play& play, character_name const & name, std::istream& is);
 bool arguments_sanity_check(int, char **);
+
 
 int main
 (int argc, char * argv[])
@@ -57,28 +66,34 @@ int main
     // store character name and script file name
     std::map<character_name, script_file_ifstream> character_script_map = std::map<character_name, script_file_ifstream>();
 
-    // Read configuration file line by line
+    
     std::string line;
     std::string file_name;
     character_name name;
-    std::ifstream infile(argv[1]);
     bool first_line_have_read = false;
     std::string play_name;
+    std::ifstream infile(argv[1]);
+    // 
     if (!infile.is_open())
     {
         std::cout << "Error: File " << argv[1] << "can not open!" << std::endl;
         return EINVAL;
     }
+    // Read configuration file line by line
     while (std::getline(infile, line))
     {
+        // skip empty line
         if (line.size() == 0) continue;
+        // store play name from first line
         if (!first_line_have_read)
         {
             play_name = line;
             first_line_have_read = true;
             continue;
         }
+        // skip spaces-only line
         if (line.find_first_not_of(" ") >= line.size()) continue;
+        // seperate line into character name and character script
         size_t pos = line.find(" ");
         name = line.substr(0, pos);
         file_name = line.substr(pos+1);
@@ -88,6 +103,7 @@ int main
             std::cout << "Something wrong when reading configuration file " << line << std::endl;
             continue;
         }
+        // open script file and store structured line into a map as value, and character name as key
         std::ifstream script_file(file_name);
         if(!script_file.is_open())
         {
@@ -97,20 +113,26 @@ int main
         character_script_map[name] = std::move(script_file);
     }
 
+    // construct a Play object using the name of the play
     Play play(play_name);
+
+    // construct a std::thread object for each well formed character definition line
     for (std::map<character_name, script_file_ifstream>::iterator it = character_script_map.begin(); it != character_script_map.end();++it)
     {
         std::thread t(read_thread, std::ref(play), std::ref((*it).first), std::ref((*it).second));
-        t.join();
-        //std::cout << (*it).first << std::endl;
+        // join with each of the threads
+        thread_guard g(t);
     }
 
+    // call the Play object's print
     play.print(std::cout);
     
     return ZERO;
 }
 
-bool arguments_sanity_check(int argc, char** argv)
+
+bool
+arguments_sanity_check(int argc, char** argv)
 {
     if (argc != 2)
     {
@@ -147,22 +169,25 @@ read_thread(Play& play, character_name const & name, std::istream& is)
 
 
 
-Play& Play::operator<< (Structured_line line)
+Play&
+Play::operator<< (Structured_line line)
 {
     std::lock_guard<std::mutex> lock(this->m);
-    this->structured_lines_->insert(std::pair<index, name_text_pair>(line.idx_, line.pair_)); 
+    this->structured_lines_.insert(std::pair<index, name_text_pair>(line.idx_, line.pair_)); 
     return *this;
 }
-void Play::print(std::ostream& os)
+
+void
+Play::print(std::ostream& os)
 {
     os << this->play_name_ << "\n";
     character_name current_character;
-    for (structuered_lines::iterator it = this->structured_lines_->begin(); it != this->structured_lines_->end(); ++it)
+    for (structuered_lines::iterator it = this->structured_lines_.begin(); it != this->structured_lines_.end(); ++it)
     {
-        if(it == this->structured_lines_->begin() || current_character.compare((*it).second.first) != 0)
+        if(it == this->structured_lines_.begin() || current_character.compare((*it).second.first) != 0)
         {
             current_character = (*it).second.first;
-            std::cout << "\n" << current_character << "." << std::endl;
+            std::cout << "\n" << current_character << ". " << std::endl;
         }
         std::cout << (*it).second.second << std::endl;
     }

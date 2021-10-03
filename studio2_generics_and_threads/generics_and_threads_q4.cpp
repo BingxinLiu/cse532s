@@ -1,10 +1,9 @@
 #include <iostream>
 #include <iterator>
 #include <algorithm>
+#include<numeric>
 
 #define ZERO 0
-
-void print_range(int*);
 
 int
 main (int, char * [])
@@ -17,7 +16,8 @@ main (int, char * [])
         int * end = start + sizeof(*arr) / sizeof(int);
         std::ostream_iterator<int> output_iterator(std::cout, "\t");
         std::copy(start, end, output_iterator);
-        std::cout << std::endl;
+        int sum = std::accumulate(start, end, 0);
+        std::cout << "sum = " << sum << std::endl;
     }
     return ZERO;
 }

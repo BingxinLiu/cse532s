@@ -4,3 +4,6 @@
 .vscode/
 *#
 *~
+*.zip
+*.ppt
+lectures

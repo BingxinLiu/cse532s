@@ -1,0 +1,1 @@
+std::cout << "play name : " << play_name << std::endl;

@@ -1,0 +1,1 @@
+g++ -Wall -std=c++11 -pthread play.cpp player.cpp utilities.cpp main.cpp -o lab1

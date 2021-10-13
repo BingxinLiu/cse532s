@@ -29,6 +29,15 @@ public:
 };
 thread_local interrupt_flag this_thread_interrupt_flag;
 
+void interruption_point1()
+{
+    if (this_thread_interrupt_flag.is_set())
+    {
+
+    }
+}
+
+
 unsigned int
 fib(unsigned int n)
 {
@@ -92,6 +101,11 @@ main (int, char * [])
 {
     // launch event loop
     interruptible_thread event_loop(std::move([](){
+        while(true)
+        {
+            interruption_point1();
+            
+        }
 
     }));
 

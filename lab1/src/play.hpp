@@ -27,10 +27,8 @@ class Play
     std::condition_variable recite_condv;
 
     std::string current_character;
+    bool has_recite_first_character = false;
 
-    // Combine operator<< and print
-    // takes a ref to an iterator over a container of structed lines
-    // synchronized with an appropriate lock and condition variable per the method's behavior 
 public:
 
     Play(const std::string play_name_) : play_name(play_name_), counter(1) 

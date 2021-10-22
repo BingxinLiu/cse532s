@@ -1,3 +1,14 @@
+# STUDIO 10 : Testing and Debugging Studio
+
+## Q1:
+
+Bingxin Liu
+
+## Q2:
+
+```c++
+// CODE:
+// debugging.hpp
 #pragma once
 
 #include <iostream>
@@ -50,3 +61,31 @@ std::ostream& operator<<(std::ostream& os, event event_)
     }
     return os;
 }
+
+// testing_and_debugging.cpp
+#include <iostream>
+
+#include "debugging.hpp"
+
+#define ZERO 0
+
+using namespace std;
+
+event debugging_event = func_be_called;
+
+int
+main(int, char * [])
+{
+    cout << debugging_event << endl;
+    cout << (debugging_event = func_return) << endl;
+    return ZERO;
+}
+```
+
+```shell
+[bingxin.liu@shell studio10_testing_and_debugging]$ ./testing_and_debugging
+called
+returning
+[bingxin.liu@shell studio10_testing_and_debugging]$
+```
+

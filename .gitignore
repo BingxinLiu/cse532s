@@ -1,7 +1,7 @@
 *.pdf
 .DS_Store
 *.swp
-.vscode/
+*.vscode/
 *#
 *~
 *.zip

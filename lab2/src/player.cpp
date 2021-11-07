@@ -5,6 +5,38 @@
 #include "player.hpp"
 #include "utilities.hpp"
 
+using namespace std;
+
+Player::Player(shared_ptr<Play> play) 
+    : play(play) 
+{
+    this->work_thread = thread([this](){
+        start_working();
+    });
+}
+
+void start_working()
+{
+    // run until it's time to stop
+    while ( this->time_to_stop() )
+    {
+        // check if its self's turn to be a leader
+        if ( this->is_leader() ) 
+        {
+            // assign work to follower
+            this->assign_work_to_follower();
+
+        }
+
+        // after assigning work to each follower
+        // turn self to be a follower
+        this->perform_as_a_follower();
+
+        // wait for another scene
+        this->wait_for_this_scene_end();
+    }
+
+}
 
 // Update the read method so that each time it is called it first empties the container of structured lines that is stored by the Player and then re-populates the container with lines from the character part file stream.
 // a public member function read each line of its scripts and store as a structed line
@@ -56,7 +88,7 @@ void Player::read()
 
         // if (and only if) both the number and some non-whitespace text were extracted from the line, inserts a structured line (based on the number, the character's name, and the text of the line following the number) into its container member variable (make sure that the container either preserves the order in which the lines appeared in the file, or reorders them by line number).
         
-        this->lines.insert(std::pair<uint, Structured_line>(order_number, Structured_line(this->character, text)));
+        this->lines.insert(pair<uint, Structured_line>(order_number, Structured_line(this->character, text)));
     }
 
     // close the script file stream after it no longer in used.

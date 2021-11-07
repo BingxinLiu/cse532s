@@ -4,8 +4,11 @@
 #include <string>
 #include <iterator>
 #include <map>
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
+
+#include "def.hpp"
 
 using namespace std;
 
@@ -24,9 +27,9 @@ struct Structured_line
 class Play
 {
     // takes and stores a reference to a container of strings (for the titles of the different scenes in the play)
-    vector<string>& scenes_name;
+    const vector<string>& scenes_names;
     // initializes an iterator member variable to point to the beginning of that container
-    vector<string>::iterator it = scenes_name.begin();
+    vector<string>::const_iterator it;
     // and if the container is non-empty prints out the string to which the iterator points to the standard output stream and then increments the iterator.
 
 
@@ -48,10 +51,8 @@ class Play
 
 public:
 
-    Play(const std::string play_name_) : play_name(play_name_), counter(1) 
-    {
-        this->current_character = "";
-    }
+    explicit Play(const Config_struct& config, const vector<string>& scenes_names) :
+    scenes_names(scenes_names) {};
 
     // update the signature of the public recite method so that in addition to an iterator over a container of structured lines, it also takes a numeric argument giving the number of the current scene fragment in which the lines are to be recited.
     void recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsigned int current_scence);

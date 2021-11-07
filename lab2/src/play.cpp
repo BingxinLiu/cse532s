@@ -4,6 +4,18 @@
 #include <mutex>
 #include "play.hpp"
 
+Play::Play(const Config_struct& config, const vector<string>& scenes_names) :
+    scenes_names(scenes_names),
+    line_counter(0),
+    scene_fragment_counter(0),
+    on_stage_member_num(0)
+{
+    this->it = scenes_names.cbegin();
+    this->current_character = "";
+
+    // initialize counter
+    
+}
 
 // Also update the recite method's implementation so that it compares the values of both the line_counter and scene_fragment_counter member variables, to the line number of the structured line to which the passed iterator refers and the passed scene fragment number, respectively.
 // a function play the play

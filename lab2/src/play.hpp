@@ -28,19 +28,27 @@ class Play
 {
     // takes and stores a reference to a container of strings (for the titles of the different scenes in the play)
     const vector<string>& scenes_names;
-    // initializes an iterator member variable to point to the beginning of that container
-    vector<string>::const_iterator it;
-    // and if the container is non-empty prints out the string to which the iterator points to the standard output stream and then increments the iterator.
-
+    
 
     // rename the counter member variable to something like line_counter
-    unsigned int line_counter;
+    mutex line_counter_mutex;
+    unsigned int line_counter = 0;
 
     // add a private numeric scene_fragment_counter member variable for the current scene fragment that is in progress, which the Play class constructor should initialize to 0 or 1 depending on how you handle increments and decrements to it in the enter and exit methods respectively (see below)
-    unsigned int scene_fragment_counter;
+    mutex scene_fragment_counter_mutex;
+    unsigned int scene_fragment_counter = 0;
+
+    condition_variable start_scene_cv;
     
     // add a private numeric on_stage member variable for the number of characters currently on stage in the current scene fragment, which the Play class constructor should initialize to 0;
-    unsigned int on_stage_member_num;
+    mutex on_stage_member_num_mutex;
+    unsigned int on_stage_member_num = 0;
+
+
+    // a flag indicating the current scene has finished
+    mutex current_scene_finished_mutex;
+    bool current_scene_finished;
+
 
 
     std::mutex recite_mutex;
@@ -51,15 +59,40 @@ class Play
 
 public:
 
+    // a flag indicating the current scene has finished  
+    bool current_scene_end = false;
+    mutex current_scene_end_mutex;
+    condition_variable current_scene_end_cv;
+
+    // a flag indicating the play has finished
+    bool finished = false;
+
+    // a flag indicating if there is a leader
+    mutex leader_mutex;
+    bool has_leader = false;
+
+    // number of needed player in this play
+    mutex needed_player_num_mutex;
+    condition_variable needed_player_cv;
+    unsigned int needed_player_num;
+
+    // initializes an iterator member variable to point to the beginning of that container
+    vector<string>::const_iterator scene_it;
+    // and if the container is non-empty prints out the string to which the iterator points to the standard output stream and then increments the iterator.
+
+    const Config_struct& config;
+
     explicit Play(const Config_struct& config, const vector<string>& scenes_names) :
-    scenes_names(scenes_names) {};
+    scenes_names(scenes_names),
+    config(config) {};
+
 
     // update the signature of the public recite method so that in addition to an iterator over a container of structured lines, it also takes a numeric argument giving the number of the current scene fragment in which the lines are to be recited.
-    void recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsigned int current_scence);
+    void recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsigned int current_scene);
 
 
     // add a public enter method that takes a numeric argument for the scene fragment that the character is attempting to enter: 
-    void enter(unsigned int scence);
+    void enter(unsigned int scene_index);
 
     // add a public exit method that: 
     void exit();

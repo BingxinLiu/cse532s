@@ -1,39 +1,113 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <algorithm> 
 #include "play.hpp"
 #include "player.hpp"
 #include "utilities.hpp"
 
 using namespace std;
 
-Player::Player(shared_ptr<Play> play) 
-    : play(play) 
+Player::Player(shared_ptr<Play> play, shared_ptr<Director> director) 
+    : play(play) , 
+    director(director)
 {
     this->work_thread = thread([this](){
         start_working();
     });
 }
 
-void start_working()
+void 
+Player::start_working()
 {
     // run until it's time to stop
     while ( this->time_to_stop() )
     {
-        // check if its self's turn to be a leader
-        if ( this->is_leader() ) 
+        this->wait_for_recruited();
+
+        if ( this->activated )
         {
-            // assign work to follower
-            this->assign_work_to_follower();
+            // check if its self's turn to be a leader
+            if ( this->is_leader() ) 
+            {
+                // assign work to follower
+                this->assign_work_to_follower();
+
+            }
+
+            // after assigning work to each follower
+            // turn self to be a follower
+            this->enter();
 
         }
 
-        // after assigning work to each follower
-        // turn self to be a follower
-        this->perform_as_a_follower();
-
+        
         // wait for another scene
-        this->wait_for_this_scene_end();
+        // this->wait_for_this_scene_end();
+    }
+
+}
+
+bool
+Player::time_to_stop()
+{
+    return this->play->finished;
+}
+
+void
+Player::wait_for_recruited()
+{
+    unique_lock<mutex> lock(this->play->needed_player_num_mutex);
+    this->play->needed_player_cv.wait(lock, [&](){
+        return this->play->needed_player_num > 0
+                || this->play->finished;
+    });
+
+    if ( this->play->finished ) return;
+
+    this->play->needed_player_num--;
+    //debug
+    cout << "still need " << this->play->needed_player_num << " players." << endl;
+    lock.unlock();
+
+    this->activated = true;
+}
+
+bool
+Player::is_leader()
+{
+    lock_guard<mutex> lock(this->play->leader_mutex);
+    if ( this->play->has_leader ) return false;
+    this->play->has_leader = true; 
+    return true;
+}
+
+void
+Player::assign_work_to_follower()
+{
+    this->play->needed_player_cv.notify_all();
+    // wait for enough player
+    while ( this->play->needed_player_num != 0 ) {}
+    //debug
+    cout << "Get enough players" << endl;
+
+    // Get the name of this scene
+    string scene_name = *(this->play->scene_it);
+
+    //debug
+    if ( scene_name.empty() )
+    {
+        cerr << "ERROR: empty scene name." << endl;
+        return;
+    }
+
+    try
+    {
+        this->director->cue(scene_name);
+    } 
+    catch(const std::exception& e)
+    {
+        cerr << e.what() << '\n';
     }
 
 }
@@ -42,6 +116,11 @@ void start_working()
 // a public member function read each line of its scripts and store as a structed line
 void Player::read()
 {
+    //debug: wait for job
+    while( this->character.empty() )
+    {
+        this_thread::yield();
+    }
     // check if the input file stream is valid
     if(!this->input_file_stream.good())
     {
@@ -105,7 +184,7 @@ void Player::act()
     while (it != this->lines.end())
     {
         // recite if it is this line's turn
-        this->play.recite(std::ref(it));
+        this->play->recite(std::ref(it), this->current_scene_index);
     }
 }
 
@@ -116,17 +195,36 @@ void Player::act()
 void
 Player::enter()
 {
-    this->mythread = std::thread([this](){
-        this->read();
-        this->act();
+    this->read();
+    this->play->enter(this->current_scene_index);
+    this->act();
+    try
+    {
+        this->play->exit();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
+    
+}
+
+void
+Player::wait_for_this_scene_end()
+{
+    unique_lock<mutex> lock(this->play->current_scene_end_mutex);
+    this->play->current_scene_end_cv.wait(lock, [&](){
+        return this->play->current_scene_end;
     });
+    lock.unlock();
 }
 
 // a public exit method that tests whether or not the std::thread member variable is joinable and if (and only if) it is calls its join method.
 void
 Player::exit()
 {
-    if (this->mythread.joinable()) {
-        this->mythread.join();
+    if (this->work_thread.joinable()) {
+        this->work_thread.join();
     }
 }

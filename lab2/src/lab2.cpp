@@ -59,8 +59,11 @@ main(int argc, char* argv[])
     }
 
     // get the path to the file
+    // TODO: maybe useless
     size_t pos = std::string(argv[CONFIG_FILE_OFFSET]).find_last_of("\\/");
     std::string directory_path = (pos == std::string::npos) ? "" : std::string(argv[CONFIG_FILE_OFFSET]).substr(0, pos+1);
+
+    Director director(argv[CONFIG_FILE_OFFSET], min_plyer_num);
 
     // read one line at a time from config (ignoring any lines that only contain whitespace), storing play name
     std::string play_name;
@@ -71,6 +74,7 @@ main(int argc, char* argv[])
         return EINVAL; 
     }
 
+    /*
     // 1. construct a Play object using the name of the play;
     Play play(play_name);
 
@@ -114,5 +118,6 @@ main(int argc, char* argv[])
 
     // 5. return 0 to indicate success, or return a uniquely identifying non-zero error code
     // if an exception was thrown or an error occurred.
+    */
     return SUCCESS;
 }

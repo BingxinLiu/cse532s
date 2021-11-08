@@ -12,11 +12,11 @@
 
 using namespace std;
 
-class Director
+class Director : enable_shared_from_this<Director>
 {
     Config_struct config;
     shared_ptr<Play> play;
-    list<shared_ptr<Player> > players;
+    
 
     vector<scene_name> scenes_names;
     size_t parse_script_file(const string& script_config_file_name, size_t scene_config_index);
@@ -24,8 +24,11 @@ class Director
     void recruit(size_t player_num);
 
 public:
+
+    list<shared_ptr<Player> > players;
     //constructor
     Director(const string& script_file_name, unsigned int min_player_number){};
+    ~Director();
 
-    void cue(){};
+    void cue(scene_name scene_name){};
 };

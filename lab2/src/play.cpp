@@ -2,14 +2,15 @@
 #include <map>
 #include <algorithm>
 #include <mutex>
+#include <thread>
 #include "play.hpp"
 
 Play::Play(const Config_struct& config, const vector<string>& scenes_names) :
-    config(config),
     scenes_names(scenes_names),
-    line_counter(0),
+    line_counter(1),
     scene_fragment_counter(0),
-    on_stage_member_num(0)
+    on_stage_member_num(0),
+    config(config)
 {
     this->scene_it = scenes_names.cbegin();
     this->current_character = "";
@@ -24,7 +25,7 @@ void
 Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsigned int current_scene)
 {
     unique_lock<mutex> lock(this->recite_mutex);
-
+    cout << this_thread::get_id() << " " << (*it).first << endl;
     // While the scene_fragment_counter member variable is less than the passed scene fragment number, or is equal but the line_counter member variable is less than the line number in the structured line referenced by the passed iterator, the recite method should repeatedly wait on a condition variable, until the line_counter and scene_fragment_counter member variables reach the values given in the the corresponding passed data.
     if ( this->scene_fragment_counter <= current_scene )
     {
@@ -112,6 +113,8 @@ Play::enter(unsigned int scene_index)
     // if the passed value is equal to the scene_fragment_counter member variable, the method should increment the on_stage member variable and return; 
     if ( scene_index == this->scene_fragment_counter )
     {
+        // debug
+    cout << this_thread::get_id() << "enter" << scene_index << endl;
         lock.unlock();
         on_stage_member_num++;
         return;
@@ -123,6 +126,8 @@ Play::enter(unsigned int scene_index)
         this->start_scene_cv.wait(lock, [&](){
             return scene_index == this->scene_fragment_counter;
         });
+        // debug
+    cout << this_thread::get_id() << "enter" << scene_index << endl;
         lock.unlock();
         on_stage_member_num++;
         return;
@@ -155,6 +160,10 @@ Play::exit()
         // (b) increments the scene_fragment_counter member variable, 
         this->scene_fragment_counter++;
         // (c) if the iterator member variable is not already past the end of the container of scene titles prints out the string the iterator member variable currently references if that string is non-empty and then (whether or not the string was empty) increments the iterator member variable, 
+
+        // reset line counter
+        this->line_counter = 1;
+
         if ( this->scene_it != this->scenes_names.end() )
         {
             if ( !(*this->scene_it).empty() )

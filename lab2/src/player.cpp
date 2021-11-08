@@ -2,13 +2,14 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm> 
+#include <mutex>
 #include "play.hpp"
 #include "player.hpp"
 #include "utilities.hpp"
 
 using namespace std;
 
-Player::Player(shared_ptr<Play> play, shared_ptr<Director> director) 
+Player::Player(shared_ptr<Play> play, Director* director) 
     : play(play) , 
     director(director)
 {
@@ -21,7 +22,7 @@ void
 Player::start_working()
 {
     // run until it's time to stop
-    while ( this->time_to_stop() )
+    while ( !this->time_to_stop() )
     {
         this->wait_for_recruited();
 
@@ -62,6 +63,9 @@ Player::wait_for_recruited()
         return this->play->needed_player_num > 0
                 || this->play->finished;
     });
+
+    //debug
+    cout << this_thread::get_id() << "recrutied" << endl;
 
     if ( this->play->finished ) return;
 
@@ -121,10 +125,19 @@ void Player::read()
     {
         this_thread::yield();
     }
+    //debug
+    {
+        lock_guard<mutex> lock(this->play->current_scene_end_mutex); 
+        cout << this_thread::get_id() << "perform as " << this->character << endl;
+    }
+    
+    this->input_file_stream = ifstream(input_file_name);
+    
     // check if the input file stream is valid
     if(!this->input_file_stream.good())
-    {
-        std::cerr << "Error: Input file stream broken. [ " << this->character << " ]" << std::endl;
+    {   
+        lock_guard<mutex> lock (this->play->current_scene_end_mutex); 
+        std::cerr << "Error: Input file stream broken. [ " << this->input_file_name << " ]" << std::endl;
         return;
     }
 
@@ -167,7 +180,7 @@ void Player::read()
 
         // if (and only if) both the number and some non-whitespace text were extracted from the line, inserts a structured line (based on the number, the character's name, and the text of the line following the number) into its container member variable (make sure that the container either preserves the order in which the lines appeared in the file, or reorders them by line number).
         
-        this->lines.insert(pair<uint, Structured_line>(order_number, Structured_line(this->character, text)));
+        this->lines.insert(pair<unsigned int, Structured_line>(order_number, Structured_line(this->character, text)));
     }
 
     // close the script file stream after it no longer in used.

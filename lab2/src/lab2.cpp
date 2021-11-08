@@ -65,6 +65,7 @@ main(int argc, char* argv[])
 
     Director director(argv[CONFIG_FILE_OFFSET], min_plyer_num);
 
+    /*
     // read one line at a time from config (ignoring any lines that only contain whitespace), storing play name
     std::string play_name;
     while (getline(config_file_is, play_name) && play_name.empty()) {}
@@ -74,7 +75,6 @@ main(int argc, char* argv[])
         return EINVAL; 
     }
 
-    /*
     // 1. construct a Play object using the name of the play;
     Play play(play_name);
 

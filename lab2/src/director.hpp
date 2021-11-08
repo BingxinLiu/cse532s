@@ -1,3 +1,4 @@
+#pragma once
 
 #include <string>
 #include <map>
@@ -12,11 +13,10 @@
 
 using namespace std;
 
+class Player;
+
 class Director : enable_shared_from_this<Director>
 {
-    Config_struct config;
-    shared_ptr<Play> play;
-    
 
     vector<scene_name> scenes_names;
     size_t parse_script_file(const string& script_config_file_name, size_t scene_config_index);
@@ -24,11 +24,15 @@ class Director : enable_shared_from_this<Director>
     void recruit(size_t player_num);
 
 public:
+    Config_struct config;
+    shared_ptr<Play> play;
 
     list<shared_ptr<Player> > players;
     //constructor
-    Director(const string& script_file_name, unsigned int min_player_number){};
+    Director(const string& script_file_name, unsigned int min_player_number);
     ~Director();
 
-    void cue(scene_name scene_name){};
+    void cue(scene_name scene_name);
+    void start();
+    shared_ptr<Director> get_shared_ptr();
 };

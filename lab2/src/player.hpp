@@ -10,6 +10,9 @@
 #include "play.hpp"
 #include "def.hpp"
 
+using namespace std;
+
+class Director;
 
 class Player
 {
@@ -20,7 +23,6 @@ class Player
     void start_working();
     bool is_leader();
     void assign_work_to_follower();
-    void act();
     void wait_for_this_scene_end();
     bool time_to_stop();
     void wait_for_recruited();
@@ -34,12 +36,12 @@ public:
     std::ifstream input_file_stream;
     unsigned int current_scene_index;
     bool activated;
+    string input_file_name;
 
     // Update the Player class constructor, member variables, and methods so that they are compatible with the HS/HA or L/F design approach you take per the instructions above. In particular, you should consider whether the following changes are compatible with your approach (and if not should modify them accordingly). Again, please make sure to document your design decisions and rationale for this part as well, in your project report.
 
     // Update its constructor and member variables so that it only keeps track of a reference to the Play in which it is performing (and does not store the name of a character or a character part file stream).
-    Player(shared_ptr<Play> play, shared_ptr<Director> director) : play(play), 
-    director(director) {};
+    Player(shared_ptr<Play> play, Director* director);
 
     // Player(Player&& right) :
     //        lines(std::move(right.lines)), mythread(std::move(right.mythread)),

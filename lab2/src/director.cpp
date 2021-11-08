@@ -40,9 +40,9 @@ Director::parse_script_file(const string& script_config_file_name, size_t scene_
         if ( istringstream(line) >> character_name >> script_file_name )
         {
             // check if current character has been inserted into set
-            if ( character_names.find(character_name) == character_names.end())
+            if ( character_names.find(character_name) != character_names.end())
             {
-                cerr << "WARNNING: trying to insert duplicated scharacter's script file in a scene" << endl;
+                cerr << "WARNNING: trying to insert duplicated character's script file in a scene" << endl;
                 continue;
             }
             character_names.insert(character_name);
@@ -69,7 +69,7 @@ Director::parse_config_file(const string& scene_config_file_name)
     ifstream config_file_ifs(scene_config_file_name);
     if ( !config_file_ifs.good() )
     {
-        throw invalid_argument(scene_config_file_name);
+        throw invalid_argument("ERROR: file " + scene_config_file_name + "is bad.");
     }
 
     set<scene_name> scene_names;
@@ -116,7 +116,7 @@ Director::parse_config_file(const string& scene_config_file_name)
 
             // (2) keep track of the maximum sum of the numbers of part configuration lines that appear in any two consecutive configuration files, and 
             // TODO: do not hard code
-            current_scene_characters_num = parse_script_file(directory + "../script_files/" + line, current_scene_config_index);
+            current_scene_characters_num = parse_script_file(directory + line, current_scene_config_index);
             max_scene_characters_num = max(max_scene_characters_num, current_scene_characters_num + last_scene_characters_num);
             last_scene_characters_num = current_scene_characters_num;
 
@@ -131,11 +131,13 @@ Director::parse_config_file(const string& scene_config_file_name)
 void
 Director::recruit(size_t player_num)
 {
-    this->players.clear();
+    //this->players.clear();
     for (size_t i = 0; i < player_num; ++i)
     {
-        this->players.push_back(make_shared<Player>(this->play.get(), shared_from_this()));
+        this->players.push_back(make_shared<Player>(this->play, this));
+
     }
+    cout << "recuite done" << endl;
 }
 
 
@@ -158,20 +160,22 @@ Director::Director(const string& script_file, unsigned int min_player_number)
         throw invalid_argument("ERROR: max characters in twon scene is too large.");
     }
 
+    //debug
+    cout << "make play instance" << endl;
+
     // After it finishes reading the script file, the constructor should dynamically (i.e, using the new operator) allocate a Play object (passing a reference to the container of scene title strings into the Play constructor), and store a shared_ptr (or other appropriate C++ smart pointer) to that Play object in a member variable so that when the Director is destroyed so is the Play.
     this->play = make_shared<Play>(this->config, this->scenes_names);
 
+    //debug
+    cout << "recruite players" << endl;
     // The Director class constructor should then take the maximum of the passed unsigned integer value and the maximum number of part lines in two consecutive script fragments, and should dynamically allocate (i.e, again using the new operator) that many Player objects (passing each one a reference to the Play object, and should push back a shared_ptr to each one into a container member variable of the Director class.
     recruit(max(static_cast<unsigned int>(max_characters_in_two_scene), min_player_number));
 
-    // after recruite enough players, set need number of players in the first scene
-    {
-        lock_guard<mutex> lock(this->play->needed_player_num_mutex);
-        this->play->needed_player_num = this->config.front().second.size();
-    }
-    
-    // notify one player so that it can be the leader
-    this->play->needed_player_cv.notify_one();
+    //debug
+    cout << "Distructer constructed." << endl;
+
+
+    this->start();
 }
 
 void 
@@ -193,7 +197,7 @@ Director::cue(scene_name scene_name)
 
     for ( scene_config_struct::iterator it = scene_config.begin(); it != scene_config.end(); ++it )
     {
-        players_it = find_if(players_it, this->players.end(), [](shared_ptr<Player> player){
+        players_it = find_if(players_it, this->players.end(), [&](shared_ptr<Player> player){
             return player->activated;
         });
 
@@ -202,10 +206,11 @@ Director::cue(scene_name scene_name)
             cerr << "ERROR: can not find a player to perform." << endl;
             throw invalid_argument(scene_name);
         }
-
-        (*players_it)->character = (*it).first;
-        (*players_it)->input_file_stream = ifstream((*it).second);
+        // TODO don't hard code
+        (*players_it)->input_file_name = "./script_files/" + (*it).second;
         (*players_it)->current_scene_index = current_scene_index;
+        (*players_it)->character = (*it).first;
+        players_it++;
     }
     
     // debug
@@ -222,10 +227,41 @@ Director::cue(scene_name scene_name)
 
 }
 
+shared_ptr<Director>
+Director::get_shared_ptr()
+{
+    cout << "???" << endl;
+    return shared_from_this();
+}
+
+void
+Director::start()
+{
+    //debug
+    cout << "set first scene" << endl;
+    // after recruite enough players, set need number of players in the first scene
+    {
+        lock_guard<mutex> lock(this->play->needed_player_num_mutex);
+        this->play->needed_player_num = this->config.front().second.size();
+        //debug
+        cout << "number of players needed = " << this->play->needed_player_num << endl;;
+    }
+    
+    // notify one player so that it can be the leader
+    this->play->needed_player_cv.notify_one();
+}
+
 Director::~Director() 
 {
+    while ( !this->play->finished ) 
+    {
+        this_thread::yield();
+    }
     cout << "Deconstructe director" << endl;
-    for_each(this->players.begin(), this->players.end(), [&](auto it){
-        *it->exit();
-    });
+    for (list<shared_ptr<Player> >::iterator it = this->players.begin();
+    it != this->players.end(); ++it)
+    {
+        (*it)->exit();
+    }
 }
+

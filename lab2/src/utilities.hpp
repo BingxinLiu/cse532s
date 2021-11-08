@@ -4,6 +4,8 @@
 
 #include <string>
 
+using namespace std;
+
 const std::string WHITESPACE = " \n\r\t\f\v";
 
 std::string ltrim(const std::string &s);

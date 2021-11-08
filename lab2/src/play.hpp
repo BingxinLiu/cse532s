@@ -74,7 +74,7 @@ public:
     // number of needed player in this play
     mutex needed_player_num_mutex;
     condition_variable needed_player_cv;
-    unsigned int needed_player_num;
+    unsigned int needed_player_num = 0;
 
     // initializes an iterator member variable to point to the beginning of that container
     vector<string>::const_iterator scene_it;
@@ -82,9 +82,7 @@ public:
 
     const Config_struct& config;
 
-    explicit Play(const Config_struct& config, const vector<string>& scenes_names) :
-    scenes_names(scenes_names),
-    config(config) {};
+    explicit Play(const Config_struct& config, const vector<string>& scenes_names);
 
 
     // update the signature of the public recite method so that in addition to an iterator over a container of structured lines, it also takes a numeric argument giving the number of the current scene fragment in which the lines are to be recited.

@@ -26,8 +26,6 @@ struct Structured_line
 
 class Play
 {
-    // takes and stores a reference to a container of strings (for the titles of the different scenes in the play)
-    const vector<string>& scenes_names;
     
 
     // rename the counter member variable to something like line_counter
@@ -50,7 +48,6 @@ class Play
     bool current_scene_finished;
 
 
-
     std::mutex recite_mutex;
     std::condition_variable recite_condv;
 
@@ -58,6 +55,11 @@ class Play
     bool has_recite_first_character = false;
 
 public:
+
+    // a flag indicating every player ready
+    mutex not_ready_players_num_mutex;
+    condition_variable not_ready_players_num_cv;
+    unsigned int not_ready_players_num = 0;
 
     // a flag indicating the current scene has finished  
     bool current_scene_end = false;
@@ -75,6 +77,9 @@ public:
     mutex needed_player_num_mutex;
     condition_variable needed_player_cv;
     unsigned int needed_player_num = 0;
+
+    // takes and stores a reference to a container of strings (for the titles of the different scenes in the play)
+    const vector<string>& scenes_names;
 
     // initializes an iterator member variable to point to the beginning of that container
     vector<string>::const_iterator scene_it;

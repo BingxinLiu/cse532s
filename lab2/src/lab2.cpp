@@ -63,7 +63,8 @@ main(int argc, char* argv[])
     size_t pos = std::string(argv[CONFIG_FILE_OFFSET]).find_last_of("\\/");
     std::string directory_path = (pos == std::string::npos) ? "" : std::string(argv[CONFIG_FILE_OFFSET]).substr(0, pos+1);
 
-    Director director(argv[CONFIG_FILE_OFFSET], min_plyer_num);
+    Director* director = new Director(argv[CONFIG_FILE_OFFSET], min_plyer_num);
+    delete director;
 
     /*
     // read one line at a time from config (ignoring any lines that only contain whitespace), storing play name

@@ -32,7 +32,7 @@ public:
     Director(const string& script_file_name, unsigned int min_player_number);
     ~Director();
 
-    void cue(scene_name scene_name);
+    void cue(unsigned int frag_index);
     void start();
     shared_ptr<Director> get_shared_ptr();
 };

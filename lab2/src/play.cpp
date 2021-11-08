@@ -4,12 +4,13 @@
 #include <mutex>
 #include <thread>
 #include "play.hpp"
+#include "utilities.hpp"
 
 Play::Play(const Config_struct& config, const vector<string>& scenes_names) :
-    scenes_names(scenes_names),
     line_counter(1),
     scene_fragment_counter(0),
     on_stage_member_num(0),
+    scenes_names(scenes_names),
     config(config)
 {
     this->scene_it = scenes_names.cbegin();
@@ -25,7 +26,6 @@ void
 Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsigned int current_scene)
 {
     unique_lock<mutex> lock(this->recite_mutex);
-    cout << this_thread::get_id() << " " << (*it).first << endl;
     // While the scene_fragment_counter member variable is less than the passed scene fragment number, or is equal but the line_counter member variable is less than the line number in the structured line referenced by the passed iterator, the recite method should repeatedly wait on a condition variable, until the line_counter and scene_fragment_counter member variables reach the values given in the the corresponding passed data.
     if ( this->scene_fragment_counter <= current_scene )
     {
@@ -39,7 +39,18 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
         if (this->scene_fragment_counter == current_scene
              && this->line_counter == (*it).first )
         {
+            // if (this->line_counter == 1
+            //     && !(this->scene_it->empty()) )
+            // {
+            //     if (this->scene_fragment_counter != 0)
+            //         cout << "\n";
+            //     cout << *(this->scene_it) << "\n" << endl;
+            // }
 
+            if ( this->line_counter == 1 )
+            {
+                current_character = "";
+            }
             // When the scene_fragment_counter member variable equals the passed scene fragment number and the line_counter member variable equals the structured line's number, the recite method should print out the line (to cout, the standard output stream), increment the iterator, notify all other threads waiting on the condition variable, and return.
 
             /**
@@ -60,7 +71,7 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
             }
 
             // print out the line
-            std::cout << (*it).second.text << std::endl;
+            std::cout << trim((*it).second.text) << std::endl;
             // increment the iterator
             it++;
 
@@ -113,8 +124,6 @@ Play::enter(unsigned int scene_index)
     // if the passed value is equal to the scene_fragment_counter member variable, the method should increment the on_stage member variable and return; 
     if ( scene_index == this->scene_fragment_counter )
     {
-        // debug
-    cout << this_thread::get_id() << "enter" << scene_index << endl;
         lock.unlock();
         on_stage_member_num++;
         return;
@@ -126,8 +135,6 @@ Play::enter(unsigned int scene_index)
         this->start_scene_cv.wait(lock, [&](){
             return scene_index == this->scene_fragment_counter;
         });
-        // debug
-    cout << this_thread::get_id() << "enter" << scene_index << endl;
         lock.unlock();
         on_stage_member_num++;
         return;
@@ -166,25 +173,39 @@ Play::exit()
 
         if ( this->scene_it != this->scenes_names.end() )
         {
-            if ( !(*this->scene_it).empty() )
-                cout << *scene_it << endl;
+            // if ( !(*this->scene_it).empty() )
+            //     cout << *scene_it << endl;
             this->scene_it++;
 
             // set new scene
+            if ( this->scene_it != this->scenes_names.end() )
             {
-                lock_guard<mutex> lock(this->needed_player_num_mutex);
-                this->needed_player_num = this->config[this->scene_fragment_counter].second.size();
-            }
+                //debug
+                // cout << "I'm the last one on stage, going to perform [" <<
+                // this->scene_fragment_counter << "/" << this->scenes_names.size() << "] fragment" << endl;
+                // cout << "line counter: " << this->line_counter << endl;
+                {
+                    lock_guard<mutex> lock(this->needed_player_num_mutex);
+                    this->needed_player_num = this->config[this->scene_fragment_counter].second.size();
+                }
+                {
+                    lock_guard<mutex> lock(this->leader_mutex);
+                    this->has_leader = false;
+                }
+                    // set number of not ready players
+                {
+                    lock_guard<mutex> lock(this->not_ready_players_num_mutex);
+                    this->not_ready_players_num = this->config[this->scene_fragment_counter].second.size();
+                }
+                this->needed_player_cv.notify_one();
+            } else 
             {
-                lock_guard<mutex> lock(this->leader_mutex);
-                this->has_leader = false;
+                // if finished, set finish flag
+                this->finished = true;
+                this->needed_player_cv.notify_all();
             }
-            this->needed_player_cv.notify_one();
 
-        } else {
-            // if finished, set finish flag
-            this->finished = true;
-        }
+        } 
 
     }
 }

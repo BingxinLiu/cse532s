@@ -9,7 +9,7 @@
 
 using namespace std;
 
-Player::Player(shared_ptr<Play> play, Director* director) 
+Player::Player(shared_ptr<Play> play, Director& director) 
     : play(play) , 
     director(director)
 {
@@ -64,17 +64,18 @@ Player::wait_for_recruited()
                 || this->play->finished;
     });
 
+    if ( this->play->finished ) 
+    {
+        lock.unlock();
+        return;
+    }
     //debug
-    cout << this_thread::get_id() << "recrutied" << endl;
-
-    if ( this->play->finished ) return;
-
+    //cout << this_thread::get_id() << " recruited" << endl;
+    
+    this->activated = true;
     this->play->needed_player_num--;
-    //debug
-    cout << "still need " << this->play->needed_player_num << " players." << endl;
     lock.unlock();
 
-    this->activated = true;
 }
 
 bool
@@ -82,6 +83,8 @@ Player::is_leader()
 {
     lock_guard<mutex> lock(this->play->leader_mutex);
     if ( this->play->has_leader ) return false;
+    //debug
+    //cout << this_thread::get_id() << " isleader" << endl;
     this->play->has_leader = true; 
     return true;
 }
@@ -91,23 +94,17 @@ Player::assign_work_to_follower()
 {
     this->play->needed_player_cv.notify_all();
     // wait for enough player
-    while ( this->play->needed_player_num != 0 ) {}
-    //debug
-    cout << "Get enough players" << endl;
+    while ( this->play->needed_player_num != 0 ) 
+    {
+        this_thread::yield();
+    }
 
     // Get the name of this scene
-    string scene_name = *(this->play->scene_it);
-
-    //debug
-    if ( scene_name.empty() )
-    {
-        cerr << "ERROR: empty scene name." << endl;
-        return;
-    }
+    unsigned int current_frag_index = distance((this->play->scenes_names).begin(), this->play->scene_it);
 
     try
     {
-        this->director->cue(scene_name);
+        this->director.cue(current_frag_index);
     } 
     catch(const std::exception& e)
     {
@@ -120,16 +117,23 @@ Player::assign_work_to_follower()
 // a public member function read each line of its scripts and store as a structed line
 void Player::read()
 {
-    //debug: wait for job
-    while( this->character.empty() )
-    {
-        this_thread::yield();
-    }
+
+    unique_lock<mutex> lock(this->ready_to_read_mutex);
+    if ( !this->ready_to_read )
+        this->ready_to_read_cv.wait(lock, [&](){
+            return this->ready_to_read;
+        });
     //debug
-    {
-        lock_guard<mutex> lock(this->play->current_scene_end_mutex); 
-        cout << this_thread::get_id() << "perform as " << this->character << endl;
-    }
+    //cout << this_thread::get_id() << "perform " << this->character << endl; 
+    lock.unlock();
+    // clean old lines
+    this->lines.clear();
+    //debug: wait for job
+    // while( this->character.empty() )
+    // {
+    //     //cout << this_thread::get_id() << "wait..." << endl;
+    //     this_thread::yield();
+    // }
     
     this->input_file_stream = ifstream(input_file_name);
     
@@ -166,6 +170,7 @@ void Player::read()
         // stores the rest of the line in a C++ style string as the text
         if (!getline(issed_line, text))
         {
+            trim(text);
             if (!text.empty())
             {
                 std::cerr << "Error: can not cope with line : " << line << std::endl;
@@ -199,6 +204,14 @@ void Player::act()
         // recite if it is this line's turn
         this->play->recite(std::ref(it), this->current_scene_index);
     }
+    // clear self
+    this->activated = false;
+    this->input_file_name = "";
+    this->character = "";
+    this->ready_to_read = false;
+
+    //debug
+    //cout << "clean self" << endl;
 }
 
 
@@ -210,6 +223,24 @@ Player::enter()
 {
     this->read();
     this->play->enter(this->current_scene_index);
+
+    // wait for every player ready
+    {
+        unique_lock<mutex> lock(this->play->not_ready_players_num_mutex);
+        this->play->not_ready_players_num--;
+        if ( this->play->not_ready_players_num == 0 )
+        {
+            lock.unlock();
+            this->play->not_ready_players_num_cv.notify_all();
+        } else
+        {
+            this->play->not_ready_players_num_cv.wait(lock, [&](){
+                return this->play->not_ready_players_num == 0;
+            });
+            lock.unlock();
+        }
+    }
+
     this->act();
     try
     {
@@ -218,9 +249,8 @@ Player::enter()
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
-    }
-    
-    
+    }  
+     
 }
 
 void
@@ -240,4 +270,5 @@ Player::exit()
     if (this->work_thread.joinable()) {
         this->work_thread.join();
     }
+    //this->director = nullptr;
 }

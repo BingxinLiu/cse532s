@@ -30,18 +30,22 @@ class Player
 
 public:
 
-    shared_ptr<Director> director;
+    Director& director;
 
     std::string character;
     std::ifstream input_file_stream;
     unsigned int current_scene_index;
-    bool activated;
+    bool activated = false;
     string input_file_name;
+
+    mutex ready_to_read_mutex;
+    condition_variable ready_to_read_cv;
+    bool ready_to_read = false;
 
     // Update the Player class constructor, member variables, and methods so that they are compatible with the HS/HA or L/F design approach you take per the instructions above. In particular, you should consider whether the following changes are compatible with your approach (and if not should modify them accordingly). Again, please make sure to document your design decisions and rationale for this part as well, in your project report.
 
     // Update its constructor and member variables so that it only keeps track of a reference to the Play in which it is performing (and does not store the name of a character or a character part file stream).
-    Player(shared_ptr<Play> play, Director* director);
+    Player(shared_ptr<Play> play, Director& director);
 
     // Player(Player&& right) :
     //        lines(std::move(right.lines)), mythread(std::move(right.mythread)),

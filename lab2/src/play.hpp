@@ -47,10 +47,11 @@ class Play
     mutex current_scene_finished_mutex;
     bool current_scene_finished;
 
-
+    // recite mutex to keep serialize
     std::mutex recite_mutex;
     std::condition_variable recite_condv;
 
+    // keep tracking current character
     std::string current_character;
     bool has_recite_first_character = false;
 
@@ -83,7 +84,6 @@ public:
 
     // initializes an iterator member variable to point to the beginning of that container
     vector<string>::const_iterator scene_it;
-    // and if the container is non-empty prints out the string to which the iterator points to the standard output stream and then increments the iterator.
 
     const Config_struct& config;
 

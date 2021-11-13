@@ -47,13 +47,6 @@ public:
     // Update its constructor and member variables so that it only keeps track of a reference to the Play in which it is performing (and does not store the name of a character or a character part file stream).
     Player(shared_ptr<Play> play, Director& director);
 
-    // Player(Player&& right) :
-    //        lines(std::move(right.lines)), mythread(std::move(right.mythread)),
-    //        input_file_stream(std::move(right.input_file_stream)),  play(right.play)
-    // {
-    //     this->character = right.character;
-    // }
-
     ~Player() {this->exit();}
 
     void read();

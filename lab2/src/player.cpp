@@ -43,18 +43,17 @@ Player::start_working()
         }
 
         
-        // wait for another scene
-        // this->wait_for_this_scene_end();
     }
 
 }
-
+// check if its time to go
 bool
 Player::time_to_stop()
 {
     return this->play->finished;
 }
 
+// wait for wake up
 void
 Player::wait_for_recruited()
 {
@@ -63,32 +62,30 @@ Player::wait_for_recruited()
         return this->play->needed_player_num > 0
                 || this->play->finished;
     });
-
+    // if finished return imediately
     if ( this->play->finished ) 
     {
         lock.unlock();
         return;
     }
-    //debug
-    //cout << this_thread::get_id() << " recruited" << endl;
-    
+    // activate self and update needed number
     this->activated = true;
     this->play->needed_player_num--;
     lock.unlock();
 
 }
 
+// check if self could be a leader
 bool
 Player::is_leader()
 {
     lock_guard<mutex> lock(this->play->leader_mutex);
     if ( this->play->has_leader ) return false;
-    //debug
-    //cout << this_thread::get_id() << " isleader" << endl;
     this->play->has_leader = true; 
     return true;
 }
 
+// as a leader assign work
 void
 Player::assign_work_to_follower()
 {
@@ -102,6 +99,7 @@ Player::assign_work_to_follower()
     // Get the name of this scene
     unsigned int current_frag_index = distance((this->play->scenes_names).begin(), this->play->scene_it);
 
+    // let director assign the character
     try
     {
         this->director.cue(current_frag_index);
@@ -123,17 +121,9 @@ void Player::read()
         this->ready_to_read_cv.wait(lock, [&](){
             return this->ready_to_read;
         });
-    //debug
-    //cout << this_thread::get_id() << "perform " << this->character << endl; 
     lock.unlock();
     // clean old lines
     this->lines.clear();
-    //debug: wait for job
-    // while( this->character.empty() )
-    // {
-    //     //cout << this_thread::get_id() << "wait..." << endl;
-    //     this_thread::yield();
-    // }
     
     this->input_file_stream = ifstream(input_file_name);
     
@@ -210,8 +200,6 @@ void Player::act()
     this->character = "";
     this->ready_to_read = false;
 
-    //debug
-    //cout << "clean self" << endl;
 }
 
 
@@ -242,6 +230,7 @@ Player::enter()
     }
 
     this->act();
+    // try to exit and check status
     try
     {
         this->play->exit();
@@ -270,5 +259,4 @@ Player::exit()
     if (this->work_thread.joinable()) {
         this->work_thread.join();
     }
-    //this->director = nullptr;
 }

@@ -15,8 +15,6 @@ Play::Play(const Config_struct& config, const vector<string>& scenes_names) :
 {
     this->scene_it = scenes_names.cbegin();
     this->current_character = "";
-
-    // initialize counter
     
 }
 
@@ -39,13 +37,6 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
         if (this->scene_fragment_counter == current_scene
              && this->line_counter == (*it).first )
         {
-            // if (this->line_counter == 1
-            //     && !(this->scene_it->empty()) )
-            // {
-            //     if (this->scene_fragment_counter != 0)
-            //         cout << "\n";
-            //     cout << *(this->scene_it) << "\n" << endl;
-            // }
 
             if ( this->line_counter == 1 )
             {
@@ -53,12 +44,6 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
             }
             // When the scene_fragment_counter member variable equals the passed scene fragment number and the line_counter member variable equals the structured line's number, the recite method should print out the line (to cout, the standard output stream), increment the iterator, notify all other threads waiting on the condition variable, and return.
 
-            /**
-             * keep track of which character is currently speaking,
-             * and when a change occurs should print out (1) a blank line and (2) a line with 
-             * the name of the new character (with a period at the end) before printing out 
-             * the new character's subsequent line(s).
-             */
             if (current_character != (*it).second.character)
             {
                 if (!this->has_recite_first_character)
@@ -117,8 +102,7 @@ Play::enter(unsigned int scene_index)
     {
         lock.unlock();
         cerr << "ERROR: trying to enter a finished scene" << endl;
-        // TODO: throw something
-        throw invalid_argument("?");
+        throw invalid_argument("");
     }
 
     // if the passed value is equal to the scene_fragment_counter member variable, the method should increment the on_stage member variable and return; 
@@ -173,22 +157,18 @@ Play::exit()
 
         if ( this->scene_it != this->scenes_names.end() )
         {
-            // if ( !(*this->scene_it).empty() )
-            //     cout << *scene_it << endl;
             this->scene_it++;
 
             // set new scene
             if ( this->scene_it != this->scenes_names.end() )
             {
-                //debug
-                // cout << "I'm the last one on stage, going to perform [" <<
-                // this->scene_fragment_counter << "/" << this->scenes_names.size() << "] fragment" << endl;
-                // cout << "line counter: " << this->line_counter << endl;
                 {
+                    // set need player number
                     lock_guard<mutex> lock(this->needed_player_num_mutex);
                     this->needed_player_num = this->config[this->scene_fragment_counter].second.size();
                 }
                 {
+                    // clear has leader flag
                     lock_guard<mutex> lock(this->leader_mutex);
                     this->has_leader = false;
                 }
@@ -202,6 +182,7 @@ Play::exit()
             {
                 // if finished, set finish flag
                 this->finished = true;
+                // wake up all players to leave
                 this->needed_player_cv.notify_all();
             }
 

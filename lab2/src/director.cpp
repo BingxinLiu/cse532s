@@ -36,7 +36,6 @@ Director::parse_script_file(const string& script_config_file_name, size_t part_c
         string character_name;
         string script_file_name;
 
-        // for each configuration file that it can open should (1) count how many part definition lines each configuration file contains, (2) keep track of the maximum sum of the numbers of part configuration lines that appear in any two consecutive configuration files, and (3) when it reaches a configuration file line that immediately follows another configuration file line (i.e., does not immediately follow a new scene line that begins with the [scene] token) should push an empty string into container of scene titles.
         if ( istringstream(line) >> character_name >> script_file_name )
         {
             // check if current character has been inserted into set
@@ -61,7 +60,6 @@ Director::parse_script_file(const string& script_config_file_name, size_t part_c
     return character_names.size();
 }
 
-// TODO:
 size_t
 Director::parse_config_file(const string& scene_config_file_name)
 {
@@ -118,9 +116,6 @@ Director::parse_config_file(const string& scene_config_file_name)
             current_scene_characters_num = parse_script_file(directory + line, current_part_config_index);
             max_scene_characters_num = max(max_scene_characters_num, current_scene_characters_num + last_scene_characters_num);
             last_scene_characters_num = current_scene_characters_num;
-
-
-            //this->scenes_names.push_back("");
         }
     }
 
@@ -146,7 +141,7 @@ Director::parse_config_file(const string& scene_config_file_name)
 void
 Director::recruit(size_t player_num)
 {
-    //this->players.clear();
+    // new/recruite enough players
     for (size_t i = 0; i < player_num; ++i)
     {
         this->players.push_back(make_shared<Player>(this->play, *this));
@@ -195,27 +190,17 @@ Director::cue(unsigned int frag_index)
     {
         while ( players_it != this->players.end() )
         {
-            if ( (*players_it)->activated ) 
-            {
-                //cout << "+";
-                break;
-            }
-            //cout << "-";
+            if ( (*players_it)->activated ) break;
             players_it++;
         }
 
-        // players_it = find_if(players_it, this->players.end(), [&](shared_ptr<Player> player){
-        //     if (player->activated) cout << "+";
-        //     else cout << "-";
-        //     return player->activated;
-        // });
 
         if ( players_it == players.end() )
         {
             cerr << "ERROR: can not find a player to perform." << endl;
             throw invalid_argument(to_string(frag_index));
         }
-        // TODO don't hard code
+        // set the character and job to a player
         (*players_it)->input_file_name = "./script_files/" + (*it).second;
         (*players_it)->current_scene_index = frag_index;
         (*players_it)->character = (*it).first;
@@ -228,20 +213,10 @@ Director::cue(unsigned int frag_index)
         players_it++;
     }
     
-    // debug
-    // players_it = find_if(players_it, players.end(), [](shared_ptr<Player> player){
-    //     if (player->activated) cout << "+";
-    //         else cout << "-";
-    //         return player->activated;
-    //     });
+    // safety check make one on one job
     while ( players_it != this->players.end() )
     {
-        if ( (*players_it)->activated ) 
-        {
-            //cout << "+";
-            break;
-        }
-        //cout << "-";
+        if ( (*players_it)->activated ) break;
         players_it++;
     }
     if ( players_it != players.end() )
@@ -250,15 +225,7 @@ Director::cue(unsigned int frag_index)
         throw invalid_argument(to_string(frag_index));
     } 
 
-    // For either of these variations (or for any alternative approach you may come up with) a termination protocol is needed so that after the script file has been completed, the Player threads all terminate and the Director and Player objects and all other resources of the program are freed after which the entire program ends. For the approach combining the HS/HA and Active Object patterns, for example, it may be straightforward to use a special termination ACT that is passed to each Player object's queue, which would cause the Player's thread to exit, and the Director could then join with each of those threads (e.g., by calling each Player's exit method in which the join would occur as in lab 1. For the L/F approach, it may be appropriate to modify the Director class so that the leader can detect when there are no more parts to be played, it can simply end its own thread, let the next leader be elected which then also will terminate, etc.
 
-}
-
-shared_ptr<Director>
-Director::get_shared_ptr()
-{
-    cout << "???" << endl;
-    return shared_from_this();
 }
 
 void
@@ -281,10 +248,12 @@ Director::start()
 
 Director::~Director() 
 {
+    // wait the finish of the play
     while ( !this->play->finished ) 
     {
         this_thread::yield();
     }
+    // try to join each player work thread
     for (list<shared_ptr<Player> >::iterator it = this->players.begin();
     it != this->players.end(); ++it)
     {

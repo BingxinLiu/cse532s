@@ -6,7 +6,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
-#include <ctime>
+#include <chrono>
 
 using namespace std;
 
@@ -69,7 +69,7 @@ class Event_logger
     ostream& os;
     map<void*, const string> ptr_str_map;
     map<thread::id, size_t> id_event_count_pool;
-    map<thread::id, vector<pair<time_t, event>>> id_event_pool;
+    map<thread::id, vector<pair<long int, event>>> id_event_pool;
     map<thread::id, size_t> id_buffer_size_pool;
     mutex print_lock;
     mutex data_lock;

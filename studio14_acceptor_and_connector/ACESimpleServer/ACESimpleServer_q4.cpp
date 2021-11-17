@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 #include "ace/INET_Addr.h"
 #include "ace/SOCK_Stream.h"
 #include "ace/SOCK_Acceptor.h"
@@ -16,23 +17,38 @@ using namespace std;
 
 static size_t client_counter = 0;
 
+class server_read;
+class server_accept;
+
 class server_read : public ACE_Event_Handler
 {
-    ACE_SOCK_Stream* ace_sock_stream = nullptr;
+    bool has_not_released ;
+    ACE_SOCK_Stream ace_sock_stream;
 public:
-
+    server_read() : has_not_released(true)
+    {
+        cout << "new server read" << endl;
+    }
     ~server_read()
     {
-        this->ace_sock_stream = nullptr;
+
+        cout << "release server read" << endl;
+        if ( has_not_released )
+        {
+            has_not_released = false;
+            delete this;
+        }
+            
     }
-    void set(ACE_SOCK_Stream* ss)
+    void set(ACE_SOCK_Stream& ss)
     {
         this->ace_sock_stream = ss;
     }
 
     virtual ACE_HANDLE get_handle() const
     {
-        return this->ace_sock_stream->get_handle();
+        cout << "ace_sock_stream.get_handle" << endl;
+        return this->ace_sock_stream.get_handle();
     }
 
     virtual int handle_input (ACE_HANDLE h = ACE_INVALID_HANDLE)
@@ -40,12 +56,12 @@ public:
         char buffer[BUFFER_SIZE];
         size_t recv_len = 0;
 
-        recv_len = this->ace_sock_stream->recv(&buffer, BUFFER_SIZE);
-        if ( recv_len < 0 )
+        recv_len = this->ace_sock_stream.recv(&buffer, BUFFER_SIZE);
+        if ( recv_len <= 0 )
         {
             cout << "The socket is closed." << endl;
             ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
-            return this->ace_sock_stream->close();
+            return this->ace_sock_stream.close();
 
         }
         if ( recv_len == 0 )
@@ -60,10 +76,12 @@ public:
             cout << "Client Counter: " << client_counter << endl;
             string send_str = to_string(client_counter);
             cout << "send: " << send_str << endl;
-            if ( this->ace_sock_stream->send_n(&client_counter, sizeof(client_counter)) < 0 )
+            if ( this->ace_sock_stream.send_n(&client_counter, sizeof(client_counter)) < 0 )
                 cout << "Error: Can not send client id" << endl; 
             client_counter++;
         }
+
+        ACE_Reactor::instance()->run_reactor_event_loop();
 
         return recv_len;
     }
@@ -74,19 +92,28 @@ public:
         if ( mask | READ_MASK )
             cout << "with READ_MASK";
         cout << endl;
-        this->ace_sock_stream->close();
-        return 0;
+        int ret = this->ace_sock_stream.close();
+        if ( ret < 0 )
+            cout << "Warnning: Can not close this ace_sock_stream" << endl;
+        return ret;
     }
 
 
 
 };
 
+static vector<server_read*> server_readers;
+
 class server_accept : public ACE_Event_Handler
 {
     ACE_SOCK_Acceptor* acceptor;
 public:
     server_accept(ACE_SOCK_Acceptor* acceptor) : acceptor(acceptor) {}
+    ~server_accept()
+    {
+        cout << "release server acceptor" << endl;
+        this->acceptor = nullptr;
+    }
 
     virtual ACE_HANDLE get_handle() const
     {
@@ -96,6 +123,7 @@ public:
 
     virtual int handle_input (ACE_HANDLE h = ACE_INVALID_HANDLE)
     {
+        cout << "acceptor handle input" << endl;
 
         ACE_SOCK_Stream ace_sock_stream;
         if ( acceptor->accept(ace_sock_stream) < 0 )
@@ -104,10 +132,11 @@ public:
             return EISCONN;
         }
 
-        server_read server_read;
-        server_read.set(&ace_sock_stream);
+        server_read* server_reader = new server_read;
+        server_reader->set(ace_sock_stream);
+        server_readers.push_back(server_reader);
 
-        ACE_Reactor::instance()->register_handler(&server_read, ACE_Event_Handler::READ_MASK);
+        ACE_Reactor::instance()->register_handler(server_reader, ACE_Event_Handler::READ_MASK);
         
         // this step is neccessary
         ACE_Reactor::instance()->run_reactor_event_loop();
@@ -118,8 +147,13 @@ public:
     virtual int handle_signal (int signal, siginfo_t* = 0, ucontext_t* = 0)
     {
         cout << "handle signal" << endl;
-        ACE_Reactor::instance()->end_reactor_event_loop();
-        ACE_Reactor::instance()->close();
+        int ret;
+        ret = ACE_Reactor::instance()->end_reactor_event_loop();
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->end_reactor_event_loop() with error code: " << ret << endl;
+        ret = ACE_Reactor::instance()->close();
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->close() with error code: " << ret << endl;
         cout << "end and close done" << endl;
         return 0;
     }
@@ -136,18 +170,6 @@ public:
         return 0;
     }
 };
-
-// class server_signal : public ACE_Event_Handler
-// {
-//     virtual int handle_signal (int signal, siginfo_t* = 0, ucontext_t* = 0)
-//     {
-//         cout << "handle signal in server signal" << endl;
-//         ACE_Reactor::instance()->end_reactor_event_loop();
-//         return ACE_Reactor::instance()->close();
-//     }
-// };
-
-
 
 int 
 main(int argc, char* argv[])

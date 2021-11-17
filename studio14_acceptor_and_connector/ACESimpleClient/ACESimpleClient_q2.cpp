@@ -102,6 +102,28 @@ public:
         return ace_sock_stream.close();
 
     }
+
+    virtual int handle_signal (int signal, siginfo_t* = 0, ucontext_t* = 0)
+    {
+        cout << "handle signal" << endl;
+        ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
+        ACE_Reactor::instance()->end_reactor_event_loop();
+        ACE_Reactor::instance()->close();
+        return 0;
+    }
+
+    virtual int handle_close (ACE_HANDLE handle, ACE_Reactor_Mask mask)
+    {
+        if ( (mask | TIMER_MASK) && (mask | SIGNAL_MASK) )
+            cout << "handle close with TIMER_MASK and SIGNAL_MASK" << endl;
+        if ( !(mask | TIMER_MASK) && (mask | SIGNAL_MASK) )
+            cout << "handle close with SIGNAL_MASK" << endl;
+        if ( (mask | TIMER_MASK) && !(mask | SIGNAL_MASK) )
+            cout << "handle close with TIMER_MASK" << endl;
+
+        return 0;
+    }
+
 };
 
 int 
@@ -132,6 +154,10 @@ main(int argc, char* argv[])
 
     // Instead of calling the active timer object's schedule method, call ACE_Reactor::instance()->schedule_timer with the address of the event handler, the value 0, the delay object, and the interval object.
     reactor->schedule_timer(&client, 0, time, time_interval);
+
+
+    // register event handler
+    reactor->register_handler(SIGINT, &client);
 
     // Then, your client program should call: wait() to wait forever while the timer runs.
     //ACE_Thread_Manager::instance()->wait();

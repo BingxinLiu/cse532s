@@ -1,0 +1,7 @@
+all:
+	g++ -L$(ACE_ROOT)/ace -Wall -std=c++11 -pthread -DTEMPLATE_HEADERS_INCLUDE_SOURCE -o ACESimpleServer ../pass_through_interceptor.cpp ACESimpleServer_q2.cpp -I$(ACE_ROOT) -lACE
+
+clean:
+	rm ACESimpleServer *~
+
+

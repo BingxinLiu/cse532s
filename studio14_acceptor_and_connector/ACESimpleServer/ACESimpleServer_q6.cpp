@@ -23,25 +23,21 @@ class server_accept;
 class server_read : public ACE_Event_Handler
 {
     bool has_not_released ;
-    ACE_SOCK_Stream ace_sock_stream;
+    ACE_SOCK_Stream* ace_sock_stream;
+    size_t id;
 public:
-    server_read() : has_not_released(true)
+    server_read() : has_not_released(true), id(client_counter)
     {
         cout << "new server read" << endl;
     }
     ~server_read()
     {
 
-        cout << "release server read" << endl;
-        if ( has_not_released )
-        {
-            has_not_released = false;
-            return;
-        }
-        cout << "Warnning: double released" << endl;
+        cout << "release server read and sock stream for reader " << to_string(id) << endl;
+        delete ace_sock_stream;
             
     }
-    void set(ACE_SOCK_Stream& ss)
+    void set(ACE_SOCK_Stream* ss)
     {
         this->ace_sock_stream = ss;
     }
@@ -49,7 +45,7 @@ public:
     virtual ACE_HANDLE get_handle() const
     {
         cout << "ace_sock_stream.get_handle" << endl;
-        return this->ace_sock_stream.get_handle();
+        return this->ace_sock_stream->get_handle();
     }
 
     virtual int handle_input (ACE_HANDLE h = ACE_INVALID_HANDLE)
@@ -57,18 +53,19 @@ public:
         char buffer[BUFFER_SIZE];
         size_t recv_len = 0;
 
-        recv_len = this->ace_sock_stream.recv(&buffer, BUFFER_SIZE);
+        recv_len = this->ace_sock_stream->recv(&buffer, BUFFER_SIZE);
         if ( recv_len <= 0 )
         {
             cout << "The socket is closed." << endl;
-            ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
-            return this->ace_sock_stream.close();
-
-        }
-        if ( recv_len == 0 )
-        {
-            //cout << "Empty Message" << endl;
-            return 0;
+            int ret;
+            ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
+            if ( ret < 0)
+                cout << "remove handler failed" << endl;
+            ret = this->ace_sock_stream->close();
+            if ( ret < 0)
+                cout << "close socket failed" << endl;
+            cout << "reader remove self" << endl;
+            return -1;
         }
         cout << "RECV [" << string(buffer) << "]" << endl;
         if ( recv_len == 2 && stoi(string(buffer)) == 0 )
@@ -77,27 +74,40 @@ public:
             cout << "Client Counter: " << client_counter << endl;
             string send_str = to_string(client_counter);
             cout << "send: " << send_str << endl;
-            if ( this->ace_sock_stream.send_n(&client_counter, sizeof(client_counter)) < 0 )
+            if ( this->ace_sock_stream->send_n(&client_counter, sizeof(client_counter)) < 0 )
                 cout << "Error: Can not send client id" << endl; 
             client_counter++;
         }
 
-        ACE_Reactor::instance()->run_reactor_event_loop();
+        //ACE_Reactor::instance()->run_reactor_event_loop();
 
-        return recv_len;
+        return 0;
     }
 
     virtual int handle_close (ACE_HANDLE handle, ACE_Reactor_Mask mask)
     {
         cout << "handle close in reader "; 
         if ( mask & READ_MASK )
+        {
             cout << "with READ_MASK";
+            if ( this->has_not_released )
+            {
+                cout << "try to delete this" << endl;
+                delete this;
+            
+            }
+        }       
         cout << endl;
-        int ret = this->ace_sock_stream.close();
-        if ( ret < 0 )
-            cout << "Warnning: Can not close this ace_sock_stream" << endl;
-        // if ( has_not_released )
-        //     delete this;
+        //int ret;
+        // ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::DONT_CALL);
+        // if ( ret < 0 )
+        //     cout << "Warnning: Can not remove this from reactor" << endl;
+        // cout << "remove reader done" << endl;
+        // ret = this->ace_sock_stream.close();
+        // if ( ret < 0 )
+        //     cout << "Warnning: Can not close this ace_sock_stream" << endl;
+
+        //cout << "delete this done" << endl;
         return 0;
     }
 
@@ -105,44 +115,44 @@ public:
 
 };
 
-static vector<server_read*> server_readers;
+vector<server_read*> server_readers;
 
 class server_accept : public ACE_Event_Handler
 {
-    ACE_SOCK_Acceptor* acceptor;
-    server_read& reader;
-public:
-    server_accept(ACE_SOCK_Acceptor* acceptor, server_read& reader) : acceptor(acceptor), reader(reader) {}
+    ACE_SOCK_Acceptor& acceptor;
+    public:
+    server_accept(ACE_SOCK_Acceptor acceptor) : acceptor(acceptor) {}
     ~server_accept()
     {
         cout << "release server acceptor" << endl;
-        this->acceptor = nullptr;
     }
 
     virtual ACE_HANDLE get_handle() const
     {
-        cout << "get_handle" << endl;
-        return acceptor->get_handle();
+        cout << "acceptor get handle" << endl;
+        return acceptor.get_handle();
     }
 
     virtual int handle_input (ACE_HANDLE h = ACE_INVALID_HANDLE)
     {
         cout << "acceptor handle input" << endl;
 
-        ACE_SOCK_Stream ace_sock_stream;
-        if ( acceptor->accept(ace_sock_stream) < 0 )
+        ACE_SOCK_Stream* ace_sock_stream = new ACE_SOCK_Stream;
+        server_read* reader = new server_read;
+        if ( acceptor.accept(*ace_sock_stream) < 0 )
         {
             cout << "Error: Can not accept the ace_sock_stream" << endl;
             return EISCONN;
         }
 
-        this->reader.set(ace_sock_stream);
+        reader->set(ace_sock_stream);
+        ACE_Reactor::instance()->register_handler(reader, ACE_Event_Handler::READ_MASK);
 
-        ACE_Reactor::instance()->register_handler(&(this->reader), ACE_Event_Handler::READ_MASK);
+        //server_readers.push_back(reader);
         
         // this step is neccessary
         //ACE_Reactor::instance()->run_reactor_event_loop();
-
+        cout << "handle accept done" << endl;
         return 0;
     }
 
@@ -153,6 +163,8 @@ public:
         ret = ACE_Reactor::instance()->end_reactor_event_loop();
         if ( ret < 0)
             cout << "Error in ACE_Reactor::instance()->end_reactor_event_loop() with error code: " << ret << endl;
+        //debug
+        cout << "acceptor end_reactor_event_loop()" << endl;
         ret = ACE_Reactor::instance()->close();
         if ( ret < 0)
             cout << "Error in ACE_Reactor::instance()->close() with error code: " << ret << endl;
@@ -197,14 +209,15 @@ main(int argc, char* argv[])
     address.addr_to_string(buffer, BUFFER_SIZE, 1);
     cout << "Start listening on " << buffer << endl;
 
-    server_read* reader = new server_read;
-    server_accept server(&acceptor, *reader);
+    server_accept server(acceptor);
 
     ACE_Reactor::instance()->register_handler(&server, ACE_Event_Handler::ACCEPT_MASK);
     ACE_Reactor::instance()->register_handler(SIGINT, &server);
+
     ACE_Reactor::instance()->run_reactor_event_loop();
 
-    delete reader;
+    // for(vector<server_read*>::iterator it = server_readers.begin(); it != server_readers.end(); ++it)
+    //     delete (*it);
 
     cout << "Server Stopped" << endl;
 

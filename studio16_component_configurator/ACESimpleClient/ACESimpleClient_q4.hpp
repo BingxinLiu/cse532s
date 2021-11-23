@@ -5,6 +5,7 @@
 #include "ace/INET_Addr.h"
 #include "ace/SOCK_Stream.h"
 #include "ace/SOCK_Connector.h"
+#include "ace/SOCK_Acceptor.h"
 #include "ace/Event_Handler.h"
 #include "ace/Timer_Queue_Adapters.h"
 #include "ace/OS_NS_sys_time.h"
@@ -20,15 +21,17 @@
 
 #include "singleton_ds.hpp"
 
+#include "ace/OS_main.h"
+#include "ace/FILE_Addr.h"
+#include "ace/FILE_Connector.h"
+#include "ace/FILE_IO.h"
+#include "ace/OS_NS_string.h"
+#include "ace/OS_NS_stdio.h"
+
 using namespace std;
 
 #define SUCCESS 0
 #define BUFFER_SIZE 256
-
-class ui : public ACE_Event_Handler
-{
-    
-}
 
 
 class client : public ACE_Task_Base

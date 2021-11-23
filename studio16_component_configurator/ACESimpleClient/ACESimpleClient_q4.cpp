@@ -1,4 +1,5 @@
-#include "ACESimpleClient_q3.hpp"
+#include <thread>
+#include "ACESimpleClient_q4.hpp"
 
 using namespace std;
 
@@ -13,6 +14,13 @@ main(int argc, char* argv[])
     client client2(argc, argv);
     single->update(&client2, "client2");
 
+    // ACE_SOCK_Acceptor file_acceptor;
+    // if (file_acceptor.open(ACE_STDIN) < 0)
+    // {
+    //     cout << "Error: Can not listen on stdin" << endl;
+    //     return EINVAL;
+    // }
+    
     // refactor your main client program by adding an active timer object of type ACE_Thread_Timer_Queue_Adapter<ACE_Timer_Heap> and then calling its activate method which will launch a separate (POSIX) thread to generate timeout events.
     // ACE_Thread_Timer_Queue_Adapter<ACE_Timer_Heap> timer_queue;
     // timer_queue.activate();
@@ -45,32 +53,40 @@ main(int argc, char* argv[])
     //ACE_Thread_Manager::instance()->wait();
 
     // Then, instead of calling ACE_Thread_Manager::instance()->wait(); call ACE_Reactor::instance()->run_reactor_event_loop(); to run the reactor's event loop (forever) while the handler is repeatedly called for timer events (that are now coming from the reactor).
+    bool stop_flag = false;
+
+    std::thread t = std::thread([&](){
+        while(!stop_flag)
+        {
+            string command_line;
+            string command;
+            string mm_address;
+            string label;
+            while (true)
+            {
+                getline(cin, command_line);
+                stringstream ss(command_line);
+                if (ss >> command >> mm_address >> label)
+                {
+                    if (command == "rename")
+                    {
+                        singleton::GetInstance()->update((ACE_Service_Object *)stol(mm_address, nullptr, 16), label);
+                        continue;
+                    }
+                }
+                cout << "Can not parse the command [" << ss.str() << "]" << endl;
+
+            }
+        }
+    });
+
     reactor->run_reactor_event_loop();
 
 
     // Build your client program and run your client and server programs to confirm that they still communicate (with the client now running repeatedly). Your client should call the server and send its message about every 3 seconds
-
-    // string command_line;
-    // string command;
-    // string address;
-    // string label;
-    // while (true)
-    // {
-    //     cin.getline(command_line);
-    //     stringstream ss(command_line);
-    //     if (ss >> command >> address >> label)
-    //     {
-    //         if (command == "rename")
-    //         {
-
-    //             singleton::GetInstance()->update(stol(address, nullptr, 16), label);
-
-    //         }
-    //     }
-
-
-    // }
-
+    cout << "release ui" << endl;
+    stop_flag = true;
+    if (t.joinable()) t.join();
 
     return SUCCESS;
 }

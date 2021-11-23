@@ -33,19 +33,17 @@ using namespace std;
 #define SUCCESS 0
 #define BUFFER_SIZE 256
 
-class service_wrapper : public ACE_Service_Object{
-    
-}
 
-class client : public ACE_Task_Base
+class client : public ACE_Event_Handler
 {
     size_t argc;
     char** argv;
 
-    int canceled_;
-    ACE_Condition<ACE_Thread_Mutex> *cancel_cond_;
+    ~client()
+    {
+        cout << "release client" << endl;
+    }
 
-ACE_Thread_Mutex *mutex_;
 public:
 
     client(int argc, char* argv[]) : argc((size_t)argc), argv(argv) {}
@@ -137,18 +135,38 @@ public:
 
     virtual int handle_close (ACE_HANDLE handle, ACE_Reactor_Mask mask)
     {
+        cout << "handle close at " << this_thread::get_id() << endl;
         if ( (mask & TIMER_MASK) && (mask & SIGNAL_MASK) )
             cout << "handle close with TIMER_MASK and SIGNAL_MASK" << endl;
         if ( !(mask & TIMER_MASK) && (mask & SIGNAL_MASK) )
             cout << "handle close with SIGNAL_MASK" << endl;
         if ( (mask & TIMER_MASK) && !(mask & SIGNAL_MASK) )
             cout << "handle close with TIMER_MASK" << endl;
+        delete this;
 
         return 0;
     }
+    
+};
 
+class service_wrapper : public ACE_Task_Base {
+    client* client_service = nullptr;
+
+    int timer_id = -1;
+
+    int canceled_;
+    ACE_Condition<ACE_Thread_Mutex> *cancel_cond_;
+
+    ACE_Thread_Mutex *mutex_;
+public:
+    ~service_wrapper()
+    {
+        cout << "release service" << endl;
+    }
     virtual int init(int argc, ACE_TCHAR *argv[]){
-        cout << "Starting up the time Service\n";
+        cout << "Starting up the time Service at " << this_thread::get_id() << "\n";
+
+        client_service = new client(argc, argv);
 
         mutex_ = new ACE_Thread_Mutex;
 
@@ -164,7 +182,7 @@ public:
         cout << "FINISH!Closing down the Time Service\n";
         canceled_=1;
 
-        kill(getpid(), SIGINT);
+        ACE_Reactor::instance()->end_reactor_event_loop();
 
         mutex_->acquire();
 
@@ -174,14 +192,19 @@ public:
 
         mutex_->release();
 
-        ACE_DEBUG((LM_DEBUG,"(%t)Time Service is exiting \n"));
+        cout << "fini done" << endl;
+
+        
         return 0;
     }
 
     virtual int suspend(void)
     {
         cout << "Time Service has been suspended\n";
-        ACE_Reactor::instance()->suspend_handler(this);
+
+        ACE_Reactor::instance()->cancel_timer(this->timer_id);
+        ACE_Reactor::instance()->suspend_handler(this->client_service);
+        
         int result=ACE_Task_Base::suspend();
 
         return result;
@@ -191,7 +214,11 @@ public:
     {
         cout << "Resuming Time Service\n";
 
-        ACE_Reactor::instance()->resume_handler(this);
+        ACE_Time_Value time_interval(3, 0);
+        ACE_Time_Value time(0, 0);
+        timer_id = ACE_Reactor::instance()->schedule_timer(this->client_service, 0, time, time_interval);
+
+        ACE_Reactor::instance()->resume_handler(this->client_service);
 
         int result=ACE_Task_Base::resume();
 
@@ -200,9 +227,11 @@ public:
 
     virtual int svc(void)
     {
+
+        cout << "start svc at at " << this_thread::get_id() << "\n";
         singleton* single = singleton::GetInstance();
         //client client1(argc, argv);
-        single->update(this, "client1");
+        single->update(this, "client service");
         //client client2(argc, argv);
         //single->update(&client2, "client2");
 
@@ -235,17 +264,36 @@ public:
         //timer_queue.schedule(&client, 0, time_start, time_interval);
 
         // Instead of calling the active timer object's schedule method, call ACE_Reactor::instance()->schedule_timer with the address of the event handler, the value 0, the delay object, and the interval object.
-        reactor->schedule_timer(this, 0, time, time_interval);
+        timer_id = reactor->schedule_timer(this->client_service, 0, time, time_interval);
 
 
         // register event handler
-        reactor->register_handler(SIGINT, this);
+        int ret = reactor->register_handler(SIGINT, this->client_service);
 
         // Then, your client program should call: wait() to wait forever while the timer runs.
         //ACE_Thread_Manager::instance()->wait();
 
         // Then, instead of calling ACE_Thread_Manager::instance()->wait(); call ACE_Reactor::instance()->run_reactor_event_loop(); to run the reactor's event loop (forever) while the handler is repeatedly called for timer events (that are now coming from the reactor).
-        reactor->run_reactor_event_loop();
+        ret = reactor->run_reactor_event_loop();
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->run_reactor_event_loop() with error code: " << ret << endl;
+
+        ret = ACE_Reactor::instance()->cancel_timer(this->timer_id);
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->cancel_timer() with error code: " << ret << endl; 
+
+        ret = ACE_Reactor::instance()->remove_handler(this->client_service, ACE_Event_Handler::NULL_MASK);
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->remove_handler() with error code: " << ret << endl;
+        
+        //ACE_Reactor::instance()->close();
+        ret = ACE_Reactor::instance()->reactor_event_loop_done();
+        if ( ret < 0)
+            cout << "Error in ACE_Reactor::instance()->reactor_event_loop_done() with error code: " << ret << endl;
+        
+        ACE_Reactor::instance()->reset_reactor_event_loop();
+        cout << "end and close done" << endl;
+        
         
         canceled_=0;
 
@@ -261,5 +309,8 @@ public:
         cout << "info" << endl;
         return 0;
     }
+
 };
+
+
 

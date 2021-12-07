@@ -126,11 +126,11 @@ public:
 
     virtual int handle_close (ACE_HANDLE handle, ACE_Reactor_Mask mask)
     {
-        if ( (mask | ACCEPT_MASK) && (mask | SIGNAL_MASK) )
+        if ( (mask & ACCEPT_MASK) && (mask & SIGNAL_MASK) )
             cout << "handle close with ACCEPT_MASK and SIGNAL_MASK" << endl;
-        if ( !(mask | ACCEPT_MASK) && (mask | SIGNAL_MASK) )
+        if ( !(mask & ACCEPT_MASK) && (mask & SIGNAL_MASK) )
             cout << "handle close with SIGNAL_MASK" << endl;
-        if ( (mask | ACCEPT_MASK) && !(mask | SIGNAL_MASK) )
+        if ( (mask & ACCEPT_MASK) && !(mask & SIGNAL_MASK) )
             cout << "handle close with ACCEPT_MASK" << endl;
 
         return 0;

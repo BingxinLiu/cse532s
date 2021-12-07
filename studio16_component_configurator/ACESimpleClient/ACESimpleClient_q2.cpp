@@ -21,7 +21,7 @@ using namespace std;
 #define SUCCESS 0
 #define BUFFER_SIZE 256
 
-class client : public ACE_Event_Handler, ACE_Logging_Strategy
+class client : public ACE_Event_Handler
 {
     size_t argc;
     char** argv;

@@ -178,14 +178,15 @@ class server_accept : public ACE_Event_Handler
         server_read* reader = new server_read;
 
         vector<interceptor*> interceptors;
-        rotation_interceptor* r_inter = new rotation_interceptor;
+        mod_interceptor* r_inter = new mod_interceptor;
         multi_interceptor* m_inter = new multi_interceptor;
         interceptors.push_back(r_inter);
         interceptors.push_back(m_inter);
 
         interceptor_composer* composer = new interceptor_composer;
-        composer->compose(r_inter, -3);
         composer->compose(m_inter, -2);
+        composer->compose(r_inter, -3);
+        
         
 
         reader->set(ace_sock_stream);

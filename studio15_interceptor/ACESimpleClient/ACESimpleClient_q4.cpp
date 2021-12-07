@@ -14,7 +14,7 @@
 
 #include "ace/Reactor.h"
 
-#include "../ror_interceptor.hpp"
+#include "../interceptor.hpp"
 #include <algorithm>
 
 using namespace std;

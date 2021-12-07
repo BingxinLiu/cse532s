@@ -10,7 +10,7 @@
 
 #include "ace/Reactor.h"
 
-#include "../rol_interceptor.hpp"
+#include "../interceptor.hpp"
 #include <algorithm>
 
 using namespace std;
@@ -159,7 +159,7 @@ class server_accept : public ACE_Event_Handler
         ACE_SOCK_Stream* ace_sock_stream = new ACE_SOCK_Stream;
         server_read* reader = new server_read;
 
-        rol_interceptor* intercptr = new rol_interceptor;
+        mod_interceptor* intercptr = new mod_interceptor;
 
         if ( acceptor.accept(*ace_sock_stream) < 0 )
         {

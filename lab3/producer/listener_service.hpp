@@ -31,7 +31,7 @@ public:
 
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
-    virtual int handle_signal(int signal, siginfo_t* = 0, uncontext_t* = 0);
-    virtual int handle_close(ACE_HANDLE handle, ACE_Reacotor_Mask mask);
+    virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
+    virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
 
 };

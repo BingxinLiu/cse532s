@@ -9,12 +9,9 @@
 #include "ace/Event_Handler.h"
 
 #include "listener_service.hpp"
+#include "ui_service.hpp"
 #include "threadsafe_menu.hpp"
 #include "../utilities/threadsafe_io.hpp"
-
-class ui
-{};
-
 
 /**
  * @brief 
@@ -22,12 +19,15 @@ class ui
  * 2. interact with the director object within director program processes
  * 
  */
-class producer
+class producer : public ACE_Event_Handler
 {
     int port;
-    listener_service ls;
+    listener_service* listener_srv = nullptr;
+    ui_service* ui_srv = nullptr;
     threadsafe_menu menu;
 public:
-    producer(int port);
+    explicit producer(int port = 8086);
     ~producer();
+
+    virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
 };

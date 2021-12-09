@@ -46,5 +46,9 @@ main(int argc, char* argv[])
     }
 
     producer producer(port);
+
+    ACE_Reactor::instance()->register_handler(SIGINT, &producer);
+
+    ACE_Reactor::instance()->run_reactor_event_loop();
     
 }

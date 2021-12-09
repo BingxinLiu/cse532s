@@ -16,12 +16,10 @@
 #include "reader_service.hpp"
 #include "../utilities/const.hpp"
 
-class threadsafe_io;
-
 class listener_service : public ACE_Event_Handler
 {
     ACE_SOCK_Acceptor& acceptor;
-    threadsafe_io* io;
+    threadsafe_io* io = threadsafe_io::get_instance();
 public:
     listener_service(ACE_SOCK_Acceptor acceptor);
     ~listener_service()
@@ -31,7 +29,6 @@ public:
 
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
-    virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
     virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
 
 };

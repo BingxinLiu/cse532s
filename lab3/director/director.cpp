@@ -23,8 +23,7 @@ director::director(u_short port, std::string ip_address, int min_threads, std::v
     }
 
     this->min_players = max((size_t)min_threads, scenes_max_charactors_num);
-    this->recruit(this->min_players);
-    
+
     this->print_configs();
 
     *safe_io << "Parsing plays config files done...", safe_io->flush();
@@ -334,10 +333,18 @@ director::parse_receive_msg(std::string str)
 }
 
 void
+director::send_msg(const std::string msg)
+{
+    this->ace_sock_stream->send_n(msg.c_str(), msg.length() + 1);
+}
+
+void
 director::start_play(std::string playname, uint player_num)
 {
     this->config = this->configs[playname];
     this->play = make_shared<Play>(this->config, this->scenes_names[playname]);
+
+    this->recruit(this->min_players);
 
     this->start();
 }

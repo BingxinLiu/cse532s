@@ -66,6 +66,8 @@ public:
     void send_play_list();
     void print_configs();
     void parse_receive_msg(std::string str);
+    void send_msg(const std::string msg);
+    unsigned int get_id() {return this->director_id;};
 
     void start_play(std::string playname, uint player_num);
     void stop_play();

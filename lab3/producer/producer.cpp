@@ -1,36 +1,87 @@
 
 #include "producer.hpp"
 
-#define BUFFER_SIZE 256
+uint producer::director_id = 1;
 
-producer::producer(int port)
-    : port(port)
+producer::producer(ACE_SOCK_Acceptor acceptor)
+    : acceptor(acceptor)
 {
-    ACE_TCHAR buffer[BUFFER_SIZE];
-    ACE_INET_Addr address(this->port, ACE_LOCALHOST);
-    ACE_SOCK_Acceptor acceptor;
-
-    if (acceptor.open(address, 1) < 0)
+    this->ui_srv = new ui_service(this);
+    if (this->ui_srv->register_service() < 0)
     {
-        address.addr_to_string(buffer, BUFFER_SIZE, 1);
-        std::cout << "Error: Can not listen on " << buffer << std::endl;
-        return;
+        *safe_io << "Error: UI_service register failed.";
+        safe_io->flush();
     }
-    address.addr_to_string(buffer, BUFFER_SIZE, 1);
-    std::cout << "Start listening on " << buffer << std::endl;
-
-    this->listener_srv = new listener_service(acceptor);
-
-    this->ui_srv = new ui_service();
-
-    this->ui_srv->register_service();
-    ACE_Reactor::instance()->register_handler(this->listener_srv, ACE_Event_Handler::ACCEPT_MASK);
 }
 
 producer::~producer()
 {
-    delete this->listener_srv;
+    *safe_io << "Release producer", safe_io->flush();
     delete this->ui_srv;
+}
+
+void
+producer::send_msg(uint id, const std::string str)
+{
+    ACE_SOCK_Stream& ass = *(this->id_socket_map[id]);
+    ass.send_n(str.c_str(), str.length() + 1);
+}
+
+void
+producer::send_quit_all()
+{
+    std::string str("[QUIT]");
+    for (std::map<uint, ACE_SOCK_Stream*>::iterator it = this->id_socket_map.begin();
+    it != this->id_socket_map.end();
+    ++it)
+    {
+        it->second->send_n(str.c_str(), str.length() + 1);
+    }
+}
+
+ACE_HANDLE 
+producer::get_handle() const
+{
+    return this->acceptor.get_handle();
+}
+
+int
+producer::handle_input(ACE_HANDLE h)
+{
+    *safe_io << "listener handle connect", safe_io->flush();
+
+    ACE_SOCK_Stream* ace_sock_stream = new ACE_SOCK_Stream;
+
+    if (this->acceptor.accept(*ace_sock_stream) < 0)
+    {
+        *safe_io << "Error: Can not accept the ace_sock_stream", safe_io->flush();
+        return EISCONN;
+    }
+
+    uint id = producer::director_id++;
+
+    this->id_socket_map[id] = ace_sock_stream;
+
+    reader_service* reader = new reader_service(*this, ace_sock_stream, id);
+    ACE_Reactor::instance()->register_handler(reader, ACE_Event_Handler::READ_MASK);
+    *safe_io << "handle connect done, hand over to reader_service.", safe_io->flush();
+
+    return EXIT_SUCCESS;
+}
+
+int
+producer::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
+{
+    if ( (mask & ACCEPT_MASK) && (mask & SIGNAL_MASK) )
+        *safe_io << "handle close with ACCEPT_MASK and SIGNAL_MASK";
+    if ( !(mask & ACCEPT_MASK) && (mask & SIGNAL_MASK) )
+        *safe_io << "handle close with SIGNAL_MASK";
+    if ( (mask & ACCEPT_MASK) && !(mask & SIGNAL_MASK) )
+        *safe_io << "handle close with ACCEPT_MASK";
+    
+    safe_io->flush();
+
+    return SUCCESS;
 }
 
 int

@@ -6,7 +6,7 @@
 #include "../utilities/const.hpp"
 #include "../utilities/threadsafe_io.hpp"
 
-ui_service::ui_service() {}
+ui_service::ui_service(producer* producer_ptr) : producer_ptr(producer_ptr) {}
 
 ui_service::~ui_service() {}
 
@@ -21,7 +21,56 @@ ui_service::register_service()
 void
 ui_service::parse_command(const std::string str)
 {
+    std::stringstream ss(str);
+    std::string command;
 
+    if (ss >> command)
+    {
+        if (command == START_COMMAND)
+        {
+            uint offset;
+            if (ss >> offset)
+            {
+                *safe_io << command << " " << offset, safe_io->flush();
+                std::string playname = this->producer_ptr->menu[offset];
+                uint id = this->producer_ptr->menu.pop_avaliable(playname);
+                *safe_io << this->producer_ptr->menu.str();
+                safe_io->flush();
+                
+                ss << "[START] " << playname;
+                this->producer_ptr->send_msg(id, ss.str());
+                *safe_io << ss.str();
+                
+            }
+        }
+        if (command == STOP_COMMAND)
+        {
+            uint id;
+            if (ss >> id)
+            {
+                *safe_io << command << " " << id, safe_io->flush();
+            }
+        }
+        if (command == QUIT_COMMAND)
+        {
+            std::string str;
+            if (ss >> str && str.length() > 0)
+            {
+                *safe_io << "WARNING: Remaining command: " << str, safe_io->flush();
+            }
+            else
+            {
+                this->producer_ptr->send_quit_all();
+                *safe_io << "QUIT", safe_io->flush();   
+            }
+                
+
+        }
+
+    } else 
+    {
+        *safe_io << "ERROR: Cannot parse command: " << ss.str(), safe_io->flush();
+    }
 }
 
 int

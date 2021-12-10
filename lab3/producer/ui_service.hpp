@@ -1,12 +1,16 @@
 #pragma once
 
+#include "producer.hpp"
 #include "ace/Event_Handler.h"
+
+class producer;
 
 class ui_service : public ACE_Event_Handler
 {
+    producer* producer_ptr = nullptr;
 
 public:
-    ui_service();
+    ui_service(producer* producer_ptr);
     ~ui_service();
     
     void parse_command(const std::string str);

@@ -23,6 +23,7 @@ main(int argc, char* argv[])
     std::string ip_address;
     unsigned int min_threads;
     std::vector<std::string> scripts_filename;
+    director* director_ = nullptr;
     try
     {
         port = atoi(argv[args::PORT]);
@@ -39,13 +40,21 @@ main(int argc, char* argv[])
             std::cout << "[ADD NEW SCRIPT]" << scripts_filename.back() << std::endl;
         }
 
-        director director(port, ip_address, min_threads, scripts_filename);
+        director_ = new director(port, ip_address, min_threads, scripts_filename);
 
     } catch (std::exception &e)
     {
         std::cerr << e.what() << std::endl;
         return EINVAL;
     }
+
+    ACE_Reactor::instance()->register_handler(SIGINT, director_);
+
+    director_->regis_self();
+
+    ACE_Reactor::instance()->run_reactor_event_loop();
+
+    delete director_;
 
     return SUCCESS;
 

@@ -27,7 +27,7 @@ listener_service::handle_input(ACE_HANDLE h)
         return EISCONN;
     }
 
-    reader_service* reader = new reader_service(ace_sock_stream);
+    reader_service* reader = new reader_service(ace_sock_stream, listener_service::director_id++);
     ACE_Reactor::instance()->register_handler(reader, ACE_Event_Handler::READ_MASK);
     *(threadsafe_io::get_instance()) << "handle connect done, hand over to reader_service.", threadsafe_io::get_instance()->flush();
 

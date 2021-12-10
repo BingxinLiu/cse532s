@@ -20,6 +20,7 @@ connect_service::get_handle() const
 int
 connect_service::handle_input(ACE_HANDLE h)
 {
+    *safe_io << "connect service handle input", safe_io->flush();
     char buffer[BUFFER_SIZE];
     size_t recv_len = 0;
 
@@ -41,6 +42,8 @@ connect_service::handle_input(ACE_HANDLE h)
     }
     
     *safe_io << "RECV [" << std::string(buffer) << "]", safe_io->flush();
+
+    this->ace_sock_stream->close();
     return EXIT_SUCCESS;
 
 }

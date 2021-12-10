@@ -18,6 +18,7 @@
 
 class listener_service : public ACE_Event_Handler
 {
+    static uint director_id = 1;
     ACE_SOCK_Acceptor& acceptor;
     threadsafe_io* io = threadsafe_io::get_instance();
 public:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <map>
 
 #include "ace/INET_Addr.h"
 #include "ace/SOCK_Stream.h"
@@ -8,10 +9,12 @@
 
 #include "ace/Event_Handler.h"
 
-#include "listener_service.hpp"
+#include "reader_service.hpp"
 #include "ui_service.hpp"
 #include "threadsafe_menu.hpp"
 #include "../utilities/threadsafe_io.hpp"
+
+class ui_service;
 
 /**
  * @brief 
@@ -21,13 +24,20 @@
  */
 class producer : public ACE_Event_Handler
 {
-    int port;
-    listener_service* listener_srv = nullptr;
+    static uint director_id;
     ui_service* ui_srv = nullptr;
-    threadsafe_menu menu;
+    ACE_SOCK_Acceptor& acceptor;
 public:
-    explicit producer(int port = 8086);
+    std::map<uint, ACE_SOCK_Stream*> id_socket_map;
+    threadsafe_menu menu;
+    producer(ACE_SOCK_Acceptor acceptor);
     ~producer();
 
+    void send_msg(uint id, const std::string str);
+    void send_quit_all();
+
+    virtual ACE_HANDLE get_handle() const;
+    virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
+    virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
     virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
 };

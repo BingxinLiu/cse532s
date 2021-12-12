@@ -75,6 +75,8 @@ director::send_play_list()
     }
 }
 
+
+/*
 int
 director::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
 {
@@ -82,7 +84,7 @@ director::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
     safe_io->flush();
     return EXIT_SUCCESS;
 }
-
+*/
 
 size_t
 director::parse_play_file(const std::string& play_config_file_name)
@@ -311,10 +313,16 @@ director::parse_receive_msg(std::string str)
         if (command == STOP_COMMAND)
         {
             std::string playname;
-            if (ss >> playname)
+            if (ss >> playname && playname == this->play->playname)
             {
                 *safe_io << "STOP " << playname;
                 safe_io->flush();
+                this->play->finished = true;
+                this->play->needed_player_cv.notify_all();
+                std::stringstream ss;
+                ss << STOPPED_CONFIRM << " " << this->get_id() << " " << playname;
+                this->send_msg(ss.str());
+                std::cout << "SEND [" << ss.str() << "]" << std::endl;
             }
         }
         if (command == QUIT_COMMAND)
@@ -325,6 +333,14 @@ director::parse_receive_msg(std::string str)
                 *safe_io << "WARNING: remaining commad: " << str;
                 safe_io->flush();
             }
+            *safe_io << QUIT_COMMAND;
+            safe_io->flush();
+            this->play->finished = true;
+            this->play->needed_player_cv.notify_all();
+            std::stringstream ss;
+            ss << QUIT_CONFIRM << " " << this->get_id();
+            this->send_msg(ss.str());
+            std::cout << "SEND [" << ss.str() << "]" << std::endl;
         }
     } else
     {
@@ -342,11 +358,55 @@ void
 director::start_play(std::string playname, uint player_num)
 {
     this->config = this->configs[playname];
-    this->play = make_shared<Play>(this->config, this->scenes_names[playname]);
+
+    *safe_io << "START TO PLAY\n";
+    *safe_io << this->config_to_str();
+    *safe_io << this->scenes_names_to_str(playname);
+    safe_io->flush();
+
+    this->play = make_shared<Play>(this->config, this->scenes_names[playname], *this, playname);
 
     this->recruit(this->min_players);
 
     this->start();
+
+    std::stringstream ss;
+    ss << STARTED_CONFIRM << " " << this->get_id() << " " << playname;
+    this->send_msg(ss.str());
+}
+
+std::string
+director::config_to_str()
+{
+    std::stringstream ss;
+    Config_struct::iterator cit = this->config.begin();    
+    while (cit != this->config.end())
+    {
+        ss << cit->first << "\n";
+        scene_config_struct scs = cit->second;
+        for (scene_config_struct::iterator scs_it = scs.begin();
+            scs_it != scs.end();
+            ++scs_it)
+        {
+            ss << "\t" << scs_it->first << scs_it->second << "\n";
+        }
+        cit++;
+    }
+    return ss.str();
+}
+
+std::string
+director::scenes_names_to_str(std::string playname)
+{
+    std::stringstream ss;
+    ss << "SCENES NAMES\n";
+    std::vector<std::string>::iterator vit = this->scenes_names[playname].begin();
+    while (vit != this->scenes_names[playname].end())
+    {
+        ss << "\t - " << *vit << "\n";
+        vit++;
+    }
+    return ss.str();
 }
 
 
@@ -387,8 +447,11 @@ director::cue(unsigned int frag_index)
         }
         // set the character and job to a player
         (*players_it)->input_file_name = (*it).second;
+        *safe_io << "INPUT FILE :" << (*it).second, safe_io->flush() ;
         (*players_it)->current_scene_index = frag_index;
+        *safe_io << "CURRENT SCENE IDEX :" << frag_index, safe_io->flush() ;
         (*players_it)->character = (*it).first;
+        *safe_io << "CHARACTER :" << (*it).first, safe_io->flush() ;
         {
             lock_guard<mutex> lock((*players_it)->ready_to_read_mutex);
             (*players_it)->ready_to_read = true;

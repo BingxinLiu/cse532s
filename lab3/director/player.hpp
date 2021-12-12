@@ -13,6 +13,8 @@
 using namespace std;
 
 class director;
+class Play;
+struct Structured_line;
 
 class Player
 {
@@ -34,7 +36,7 @@ public:
 
     std::string character;
     std::ifstream input_file_stream;
-    unsigned int current_scene_index;
+    unsigned int current_scene_index = 0;
     bool activated = false;
     string input_file_name;
 

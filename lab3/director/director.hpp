@@ -13,6 +13,7 @@
 #include "../utilities/const.hpp"
 
 class Player;
+class Play;
 
 class director : public ACE_Event_Handler
 {
@@ -60,7 +61,7 @@ public:
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
     virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
-    virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
+    //virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
 
     void regis_self();
     void send_play_list();
@@ -71,4 +72,7 @@ public:
 
     void start_play(std::string playname, uint player_num);
     void stop_play();
+
+    std::string config_to_str();
+    std::string scenes_names_to_str(std::string playname);
 };

@@ -15,6 +15,7 @@
 #include "../utilities/threadsafe_io.hpp"
 
 class ui_service;
+class reader_service;
 
 /**
  * @brief 
@@ -29,12 +30,14 @@ class producer : public ACE_Event_Handler
     ACE_SOCK_Acceptor& acceptor;
 public:
     std::map<uint, ACE_SOCK_Stream*> id_socket_map;
+    std::vector<reader_service*> readers;
     threadsafe_menu menu;
     producer(ACE_SOCK_Acceptor acceptor);
     ~producer();
 
     void send_msg(uint id, const std::string str);
     void send_quit_all();
+    void wait_for_quit();
 
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);

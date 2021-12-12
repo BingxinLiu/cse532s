@@ -48,7 +48,7 @@ main(int argc, char* argv[])
         return EINVAL;
     }
 
-    ACE_Reactor::instance()->register_handler(SIGINT, director_);
+    //ACE_Reactor::instance()->register_handler(SIGINT, director_);
 
     director_->regis_self();
 

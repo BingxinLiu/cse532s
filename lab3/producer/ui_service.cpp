@@ -33,23 +33,47 @@ ui_service::parse_command(const std::string str)
             {
                 *safe_io << command << " " << offset, safe_io->flush();
                 std::string playname = this->producer_ptr->menu[offset];
+                if (playname.size() == 0) return;
                 uint id = this->producer_ptr->menu.pop_avaliable(playname);
+                if (id == 0)
+                {
+                    *safe_io << "SORRY, NOT AVAILABLE", safe_io->flush();
+                    return;
+                }
                 *safe_io << this->producer_ptr->menu.str();
                 safe_io->flush();
-                
-                ss << "[START] " << playname;
-                this->producer_ptr->send_msg(id, ss.str());
-                *safe_io << ss.str();
+                std::stringstream send_ss;
+                send_ss << START_COMMAND << " " << playname;
+                this->producer_ptr->send_msg(id, send_ss.str());
+                *safe_io << "SEND [" << send_ss.str() << "]";
+                safe_io->flush();
                 
             }
+            return;
         }
         if (command == STOP_COMMAND)
         {
-            uint id;
-            if (ss >> id)
+            uint offset;
+            if (ss >> offset)
             {
-                *safe_io << command << " " << id, safe_io->flush();
+                *safe_io << command << " " << offset, safe_io->flush();
+                std::string playname = this->producer_ptr->menu[offset];
+                if (playname.size() == 0) return;
+                uint id = this->producer_ptr->menu.pop_busy_play(playname);
+                if (id == 0)
+                {
+                    *safe_io << "SORRY, NOT AVAILABLE", safe_io->flush();
+                    return;
+                }
+
+                std::stringstream send_ss;
+                send_ss << STOP_COMMAND << " " << playname;
+                this->producer_ptr->send_msg(id, send_ss.str());
+                *safe_io << "SEND [" << send_ss.str() << "]";
+                safe_io->flush();
+
             }
+            return;
         }
         if (command == QUIT_COMMAND)
         {
@@ -61,16 +85,17 @@ ui_service::parse_command(const std::string str)
             else
             {
                 this->producer_ptr->send_quit_all();
-                *safe_io << "QUIT", safe_io->flush();   
+                *safe_io << "QUIT", safe_io->flush();
+                this->producer_ptr->handle_close(ACE_INVALID_HANDLE, SIGNAL_MASK);
+                this->producer_ptr->wait_for_quit();   
             }
+            return;
                 
 
         }
 
-    } else 
-    {
-        *safe_io << "ERROR: Cannot parse command: " << ss.str(), safe_io->flush();
     }
+    *safe_io << "ERROR: Cannot parse command: " << ss.str(), safe_io->flush();
 }
 
 int

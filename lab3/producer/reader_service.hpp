@@ -15,8 +15,9 @@ class reader_service : public ACE_Event_Handler
     producer& producer_;
     ACE_SOCK_Stream* ace_sock_stream;
     uint id;
-
+    
 public:
+    bool cleared = false;
     reader_service(producer& producer_, ACE_SOCK_Stream* ss, uint id);
     ~reader_service();
 

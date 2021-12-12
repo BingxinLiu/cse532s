@@ -39,6 +39,21 @@ producer::send_quit_all()
     }
 }
 
+void 
+producer::wait_for_quit()
+{
+    while(this->readers.size() != 0)
+    {
+        std::vector<reader_service*>::iterator it = this->readers.begin();
+        while (it != this->readers.end())
+        {
+            if ((*it)->cleared) it = this->readers.erase(it);
+            else it++;
+        }
+    }
+    *safe_io << "SAFE TO QUIT", safe_io->flush();
+}
+
 ACE_HANDLE 
 producer::get_handle() const
 {
@@ -63,6 +78,8 @@ producer::handle_input(ACE_HANDLE h)
     this->id_socket_map[id] = ace_sock_stream;
 
     reader_service* reader = new reader_service(*this, ace_sock_stream, id);
+    this->readers.push_back(reader);
+
     ACE_Reactor::instance()->register_handler(reader, ACE_Event_Handler::READ_MASK);
     *safe_io << "handle connect done, hand over to reader_service.", safe_io->flush();
 

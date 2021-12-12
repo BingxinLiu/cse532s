@@ -14,6 +14,9 @@ Player::Player(shared_ptr<Play> play, director& director_)
     director_(director_)
 {
     this->work_thread = thread([this](){
+        std::stringstream ss;
+        ss << "PLAYER" << this_thread::get_id() << "START WORKING";
+        *safe_io << ss.str(), safe_io->flush();
         start_working();
     });
 }
@@ -21,16 +24,26 @@ Player::Player(shared_ptr<Play> play, director& director_)
 void 
 Player::start_working()
 {
+    std::stringstream ss;
     // run until it's time to stop
     while ( !this->time_to_stop() )
     {
         this->wait_for_recruited();
+        ss << "PLAYER " << this_thread::get_id() << " RECRUITED";
+        *safe_io << ss.str(), safe_io->flush();
+        ss.clear();
 
         if ( this->activated )
         {
+            ss << "PLAYER " << this_thread::get_id() << " ACTIVATED";
+            *safe_io << ss.str(), safe_io->flush();
+            ss.clear();
             // check if its self's turn to be a leader
             if ( this->is_leader() ) 
             {
+                ss << "PLAYER " << this_thread::get_id() << " IS LEADER";
+                *safe_io << ss.str(), safe_io->flush();
+                ss.clear();
                 // assign work to follower
                 this->assign_work_to_follower();
 
@@ -38,6 +51,9 @@ Player::start_working()
 
             // after assigning work to each follower
             // turn self to be a follower
+            ss << "PLAYER " << this_thread::get_id() << " ENTER";
+            *safe_io << ss.str(), safe_io->flush();
+            ss.clear();
             this->enter();
 
         }
@@ -98,6 +114,8 @@ Player::assign_work_to_follower()
 
     // Get the name of this scene
     unsigned int current_frag_index = distance((this->play->scenes_names).begin(), this->play->scene_it);
+    //debug
+    *safe_io << "Current scene is " << current_frag_index  << "|", safe_io->flush();
 
     // let director assign the character
     try
@@ -177,7 +195,10 @@ void Player::read()
         
         this->lines.insert(pair<unsigned int, Structured_line>(order_number, Structured_line(this->character, text)));
     }
-
+    //debug
+    std::stringstream ss;
+    ss << "PLAYER " << this_thread::get_id() << " collect " << this->lines.size() << " lines";
+    *safe_io << ss.str(), safe_io->flush();
     // close the script file stream after it no longer in used.
     this->input_file_stream.close();
 }
@@ -188,10 +209,20 @@ void Player::act()
     //first initializes an iterator positioned at the beginning of the container of lines that the read method loaded from the file stream;
     //it should then repeatedly pass the iterator into a call to the recite method of the Play class referenced by the private member variable, until the iterator is past the last structured line in the container.
     std::map<unsigned int, Structured_line>::const_iterator it = this->lines.begin();
+
+    //debug
+    std::stringstream ss;
+    ss << "PLAYER " << this_thread::get_id() << " will recite " << this->lines.size() << " lines";
+    *safe_io << ss.str(), safe_io->flush();
     
     while (it != this->lines.end())
     {
         // recite if it is this line's turn
+        if (this->play->finished)
+        {
+            *safe_io << "???????" , safe_io->flush();
+            break;
+        } 
         this->play->recite(std::ref(it), this->current_scene_index);
     }
     // clear self
@@ -209,6 +240,9 @@ void Player::act()
 void
 Player::enter()
 {
+    std::stringstream ss;
+    ss << "PLAYER " << this_thread::get_id() << this->character << (this->activated ? "." : "]") << "??" << this->input_file_name;
+    *safe_io << ss.str(), safe_io->flush();
     this->read();
     this->play->enter(this->current_scene_index);
 
@@ -233,6 +267,10 @@ Player::enter()
     // try to exit and check status
     try
     {
+        //debug
+        std::stringstream ss;
+        ss << "PLAYER " << this_thread::get_id() << this->character << "Exir" << this->input_file_name;
+        *safe_io << ss.str(), safe_io->flush();
         this->play->exit();
     }
     catch(const std::exception& e)
@@ -259,4 +297,6 @@ Player::exit()
     if (this->work_thread.joinable()) {
         this->work_thread.join();
     }
+    //debug
+    *safe_io << "Player " << this->character << " exit", safe_io->flush();
 }

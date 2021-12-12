@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "director.hpp"
 #include "config.hpp"
 
 using namespace std;
@@ -23,6 +24,8 @@ struct Structured_line
         character(std::move(right.character)), text(std::move(right.text))
     {}
 };
+
+class director;
 
 class Play
 {
@@ -56,7 +59,6 @@ class Play
     bool has_recite_first_character = false;
 
 public:
-
     // a flag indicating every player ready
     mutex not_ready_players_num_mutex;
     condition_variable not_ready_players_num_cv;
@@ -87,7 +89,11 @@ public:
 
     const Config_struct& config;
 
-    explicit Play(const Config_struct& config, const vector<string>& scenes_names);
+    // director
+    director& director_;
+    const std::string playname;
+
+    explicit Play(const Config_struct& config, const vector<string>& scenes_names, director& director_, const std::string playname);
 
 
     // update the signature of the public recite method so that in addition to an iterator over a container of structured lines, it also takes a numeric argument giving the number of the current scene fragment in which the lines are to be recited.

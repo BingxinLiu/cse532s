@@ -1,4 +1,5 @@
 #include "reader_service.hpp"
+#include "../utilities/utilities.hpp"
 
 reader_service::reader_service(producer& producer_, ACE_SOCK_Stream* ss, uint id)
     : producer_(producer_), ace_sock_stream(ss), id(id)
@@ -76,9 +77,44 @@ reader_service::parse_receive_msg(std::string msg)
             std::string playname;
             if (ss >> id >> playname)
             {
+                playname = trim(playname);
                 this->producer_.menu.reg_play(playname, id);
                 *safe_io << this->producer_.menu.str();
                 safe_io->flush();
+            }
+        }
+        if (command == STARTED_CONFIRM)
+        {
+            uint id;
+            std::string playname;
+            if (ss >> id >> playname)
+            {
+                playname = trim(playname);
+                this->producer_.menu.set_busy_with_id(id);
+                *safe_io << id << " " << playname << "STARTED";
+                safe_io->flush();
+            }
+        }
+        if (command == STOPPED_CONFIRM)
+        {
+            uint id;
+            std::string playname;
+            if (ss >> id >> playname)
+            {
+                playname = trim(playname);
+                this->producer_.menu.set_idle_with_id(id);
+                *safe_io << this->producer_.menu.str();
+                safe_io->flush();
+            }
+        }
+        if (command == QUIT_CONFIRM)
+        {
+            uint id;
+            if (ss >> id)
+            {
+                this->producer_.menu.clean_with_id(id);
+                this->ace_sock_stream->close();
+                this->cleared = true;
             }
         }
     }

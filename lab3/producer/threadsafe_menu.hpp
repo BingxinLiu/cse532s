@@ -36,5 +36,5 @@ public:
     void set_idle_with_id(uint id);
     void set_busy_with_id(uint id);
     //bool find_in_busy(director_id id);
-    void empty();
+    size_t is_empty();
 };

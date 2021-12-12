@@ -30,7 +30,6 @@ class producer : public ACE_Event_Handler
     ACE_SOCK_Acceptor& acceptor;
 public:
     std::map<uint, ACE_SOCK_Stream*> id_socket_map;
-    std::vector<reader_service*> readers;
     threadsafe_menu menu;
     producer(ACE_SOCK_Acceptor acceptor);
     ~producer();

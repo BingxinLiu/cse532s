@@ -49,16 +49,12 @@ main(int argc, char* argv[])
     }
 
     //ACE_Reactor::instance()->register_handler(SIGINT, director_);
-
+    ACE_Reactor::instance()->register_handler(SIGINT, director_);
     director_->regis_self();
 
     ACE_Reactor::instance()->run_reactor_event_loop();
 
-    delete director_;
-
     return SUCCESS;
-
-    
 
 }
 

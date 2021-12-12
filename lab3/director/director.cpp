@@ -76,15 +76,80 @@ director::send_play_list()
 }
 
 
-/*
+ACE_HANDLE 
+director::get_handle() const
+{
+    return this->ace_sock_stream->get_handle();
+}
+
+int
+director::handle_input(ACE_HANDLE h)
+{
+    *safe_io << "connect service handle input", safe_io->flush();
+    char buffer[BUFFER_SIZE];
+    size_t recv_len = 0;
+
+    // TODO: take care of the situation that length is larger than 256
+    recv_len = this->ace_sock_stream->recv(&buffer, BUFFER_SIZE);
+    if (recv_len <= 0)
+    {
+        *safe_io << "The socket is closed.";
+        safe_io->flush();
+        int ret;
+        ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
+        if ( ret < 0)
+        *safe_io << "remove handler failed", safe_io->flush();
+        ret = this->ace_sock_stream->close();
+        if ( ret < 0)
+            *safe_io << "close socket failed", safe_io->flush();
+        *safe_io << "reader remove self", safe_io->flush();
+        return EXIT_FAILURE;
+    }
+    
+    *safe_io << "RECV [" << std::string(buffer) << "]", safe_io->flush();
+
+    this->parse_receive_msg(std::string(buffer));
+    //this->ace_sock_stream->close();
+
+    return EXIT_SUCCESS;
+
+}
+
+int
+director::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
+{
+    *safe_io << "handle close in reader ", safe_io->flush();
+    if ( mask & READ_MASK )
+    {
+        *safe_io << "with READ_MASK\n";
+        // // if ( this->has_not_released )
+        // // {
+        //     *safe_io << "try to delete this";
+        //     safe_io->flush();
+        //this->ace_sock_stream->close();
+        delete this->ace_sock_stream;
+        delete this;
+        // // }
+    }
+    
+    return EXIT_SUCCESS;
+}
+
 int
 director::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
 {
     *safe_io << "handle signal";
+    if (this->play != nullptr)
+        this->play->finished = true;
     safe_io->flush();
+    std::stringstream ss;
+    ss << QUIT_CONFIRM << " " << this->get_id();
+    this->send_msg(ss.str());
+    std::cout << "SEND [" << ss.str() << "]" << std::endl;
+    ACE_Reactor::instance()->end_event_loop();
+    ACE_Reactor::instance()->close();
     return EXIT_SUCCESS;
 }
-*/
 
 size_t
 director::parse_play_file(const std::string& play_config_file_name)
@@ -226,62 +291,6 @@ director::parse_config_file(const string& scene_config_file_name)
     return max_scene_characters_num;
 }
 
-ACE_HANDLE 
-director::get_handle() const
-{
-    return this->ace_sock_stream->get_handle();
-}
-
-int
-director::handle_input(ACE_HANDLE h)
-{
-    *safe_io << "connect service handle input", safe_io->flush();
-    char buffer[BUFFER_SIZE];
-    size_t recv_len = 0;
-
-    // TODO: take care of the situation that length is larger than 256
-    recv_len = this->ace_sock_stream->recv(&buffer, BUFFER_SIZE);
-    if (recv_len <= 0)
-    {
-        *safe_io << "The socket is closed.";
-        safe_io->flush();
-        int ret;
-        ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
-        if ( ret < 0)
-        *safe_io << "remove handler failed", safe_io->flush();
-        ret = this->ace_sock_stream->close();
-        if ( ret < 0)
-            *safe_io << "close socket failed", safe_io->flush();
-        *safe_io << "reader remove self", safe_io->flush();
-        return EXIT_FAILURE;
-    }
-    
-    *safe_io << "RECV [" << std::string(buffer) << "]", safe_io->flush();
-
-    this->parse_receive_msg(std::string(buffer));
-    //this->ace_sock_stream->close();
-
-    return EXIT_SUCCESS;
-
-}
-
-int
-director::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
-{
-    *safe_io << "handle close in reader ", safe_io->flush();
-    if ( mask & READ_MASK )
-    {
-        *safe_io << "with READ_MASK\n";
-        // if ( this->has_not_released )
-        // {
-            *safe_io << "try to delete this";
-            delete this;
-        // }
-    }
-    safe_io->flush();
-    return EXIT_SUCCESS;
-}
-
 void
 director::parse_receive_msg(std::string str)
 {
@@ -319,6 +328,7 @@ director::parse_receive_msg(std::string str)
                 safe_io->flush();
                 this->play->finished = true;
                 this->play->needed_player_cv.notify_all();
+                this->play = nullptr;
                 std::stringstream ss;
                 ss << STOPPED_CONFIRM << " " << this->get_id() << " " << playname;
                 this->send_msg(ss.str());
@@ -335,12 +345,17 @@ director::parse_receive_msg(std::string str)
             }
             *safe_io << QUIT_COMMAND;
             safe_io->flush();
-            this->play->finished = true;
-            this->play->needed_player_cv.notify_all();
+            if (this->play != nullptr)
+            {
+                this->play->finished = true;
+                this->play->needed_player_cv.notify_all();
+            }
             std::stringstream ss;
             ss << QUIT_CONFIRM << " " << this->get_id();
             this->send_msg(ss.str());
             std::cout << "SEND [" << ss.str() << "]" << std::endl;
+            ACE_Reactor::instance()->end_event_loop();
+            ACE_Reactor::instance()->close();
         }
     } else
     {
@@ -495,19 +510,7 @@ director::start()
 }
 
 director::~director() 
-{
-    // wait the finish of the play
-    // while ( !this->play->finished ) 
-    // {
-    //     this_thread::yield();
-    // }
-    // try to join each player work thread
-    // for (list<shared_ptr<Player> >::iterator it = this->players.begin();
-    // it != this->players.end(); ++it)
-    // {
-    //     (*it)->exit();
-    // }
-}
+{}
 
 
 

@@ -1,5 +1,7 @@
 #include "ui_service.hpp"
 
+#include <thread>
+
 #include "ace/Reactor.h"
 #include "ace/Thread_Manager.h"
 
@@ -8,7 +10,10 @@
 
 ui_service::ui_service(producer* producer_ptr) : producer_ptr(producer_ptr) {}
 
-ui_service::~ui_service() {}
+ui_service::~ui_service() 
+{
+    *safe_io << "Realese UI SREVICE", safe_io->flush();
+}
 
 int
 ui_service::register_service()
@@ -84,10 +89,26 @@ ui_service::parse_command(const std::string str)
             }
             else
             {
+                // remove self from reactor
+                ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
                 this->producer_ptr->send_quit_all();
-                *safe_io << "QUIT", safe_io->flush();
-                this->producer_ptr->handle_close(ACE_INVALID_HANDLE, SIGNAL_MASK);
-                this->producer_ptr->wait_for_quit();   
+                std::thread t = std::thread([this](){
+                    this->producer_ptr->wait_for_quit();
+                    int ret;
+                    ret = ACE_Reactor::instance()->end_event_loop();
+
+                    if (ret < 0)
+                    {
+                        *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->end_reactor_event_loop() with error code: " << ret, threadsafe_io::get_instance()->flush();
+                    }
+                    ret = ACE_Reactor::instance()->close();
+                    if (ret < 0)
+                    {
+                        *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->close() with error code: " << ret, threadsafe_io::get_instance()->flush();
+                    }
+                });
+                t.detach();
+                //this->handle_close(ACE_INVALID_HANDLE, SIGINT);
             }
             return;
                 
@@ -113,6 +134,9 @@ ui_service::handle_input(ACE_HANDLE h)
         this->parse_command(std::string(buffer));
 
         memset(buffer, 0, BUFFER_SIZE);
+
+        //debug
+        std::cout << "???" << std::endl;
 
         return SUCCESS;
     }

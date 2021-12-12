@@ -238,15 +238,17 @@ void
 threadsafe_menu::clean_with_id(uint id)
 {
     std::lock_guard<std::mutex> lock(this->menu_mutex);
-    this->menu.erase(this->menu.find(id));
+    *safe_io << "CLEAN " << id, safe_io->flush();
+    if (this->menu.find(id) != this->menu.end())
+        this->menu.erase(this->menu.find(id));
+    *safe_io << "CLEAN DONE " << id, safe_io->flush();
 }
 
-void
-threadsafe_menu::empty()
+size_t
+threadsafe_menu::is_empty()
 {
     std::lock_guard<std::mutex> lock(this->menu_mutex);
-    this->menu.clear();
-    this->play_name_available_map.clear();
+    return this->menu.size();
 }
 
 play_name

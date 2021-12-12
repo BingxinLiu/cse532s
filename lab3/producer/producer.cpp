@@ -1,5 +1,6 @@
 
 #include "producer.hpp"
+#include <thread>
 
 uint producer::director_id = 1;
 
@@ -17,7 +18,6 @@ producer::producer(ACE_SOCK_Acceptor acceptor)
 producer::~producer()
 {
     *safe_io << "Release producer", safe_io->flush();
-    delete this->ui_srv;
 }
 
 void
@@ -42,14 +42,10 @@ producer::send_quit_all()
 void 
 producer::wait_for_quit()
 {
-    while(this->readers.size() != 0)
+    *safe_io << "WAIT FOR QUIT", safe_io->flush();
+    while(!(this->id_socket_map.empty()))
     {
-        std::vector<reader_service*>::iterator it = this->readers.begin();
-        while (it != this->readers.end())
-        {
-            if ((*it)->cleared) it = this->readers.erase(it);
-            else it++;
-        }
+        std::this_thread::yield();
     }
     *safe_io << "SAFE TO QUIT", safe_io->flush();
 }
@@ -78,7 +74,6 @@ producer::handle_input(ACE_HANDLE h)
     this->id_socket_map[id] = ace_sock_stream;
 
     reader_service* reader = new reader_service(*this, ace_sock_stream, id);
-    this->readers.push_back(reader);
 
     ACE_Reactor::instance()->register_handler(reader, ACE_Event_Handler::READ_MASK);
     *safe_io << "handle connect done, hand over to reader_service.", safe_io->flush();
@@ -95,30 +90,32 @@ producer::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
         *safe_io << "handle close with SIGNAL_MASK";
     if ( (mask & ACCEPT_MASK) && !(mask & SIGNAL_MASK) )
         *safe_io << "handle close with ACCEPT_MASK";
-    
     safe_io->flush();
 
+    // debug
+    std::cout << "??????" << std::endl;
     return SUCCESS;
 }
 
 int
 producer::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
 {
-    *(threadsafe_io::get_instance()) << "Producer handle signal", threadsafe_io::get_instance()->flush();
-    int ret;
-    ret = ACE_Reactor::instance()->end_event_loop();
+    this->send_quit_all();
+    std::thread t = std::thread([this](){
+        this->wait_for_quit();
+        int ret;
+        ret = ACE_Reactor::instance()->end_event_loop();
 
-    if (ret < 0)
-    {
-        *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->end_reactor_event_loop() with error code: " << ret, threadsafe_io::get_instance()->flush();
-    }
-
-    ret = ACE_Reactor::instance()->close();
-    if (ret < 0)
-    {
-        *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->close() with error code: " << ret, threadsafe_io::get_instance()->flush();
-    }
-    *(threadsafe_io::get_instance()) << "End and close done", threadsafe_io::get_instance()->flush();
-
+        if (ret < 0)
+        {
+            *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->end_reactor_event_loop() with error code: " << ret, threadsafe_io::get_instance()->flush();
+        }
+        ret = ACE_Reactor::instance()->close();
+        if (ret < 0)
+        {
+            *(threadsafe_io::get_instance()) << "Error in ACE_Reactor::instance()->close() with error code: " << ret, threadsafe_io::get_instance()->flush();
+        }
+    });
+    t.detach();
     return EXIT_SUCCESS;
 }

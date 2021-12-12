@@ -58,13 +58,14 @@ main(int argc, char* argv[])
     address.addr_to_string(buffer, BUFFER_SIZE, 1);
     std::cout << "Start listening on " << buffer << " ..." << std::endl;
 
-    producer producer_(acceptor);
+    producer* producer_ = new producer(acceptor);
 
-    ACE_Reactor::instance()->register_handler(&producer_, ACE_Event_Handler::ACCEPT_MASK);
-    ACE_Reactor::instance()->register_handler(SIGINT, &producer_);
+    ACE_Reactor::instance()->register_handler(producer_, ACE_Event_Handler::ACCEPT_MASK);
+    ACE_Reactor::instance()->register_handler(SIGINT, producer_);
 
     ACE_Reactor::instance()->run_reactor_event_loop();
 
+    std::cout << "SERVICE STOPPED" << std::endl;
     return SUCCESS;
     
 }

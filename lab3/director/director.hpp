@@ -39,7 +39,7 @@ class director : public ACE_Event_Handler
     // read the whole play's config file
     size_t parse_config_file(const std::string& scene_config_file_name);
     void recruit(size_t player_num);
-
+    ~director();
 public:
     std::map<play_name, Config_struct> configs;
 
@@ -51,7 +51,6 @@ public:
     std::list<shared_ptr<Player> > players;
 
     director(u_short port, std::string ip_address, int min_threads, std::vector<std::string> scripts_filename);
-    ~director();
 
     // assign characters to each players according to fragment counter
     void cue(unsigned int frag_index);
@@ -61,7 +60,7 @@ public:
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
     virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
-    //virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
+    virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
 
     void regis_self();
     void send_play_list();

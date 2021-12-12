@@ -33,9 +33,6 @@ reader_service::handle_input(ACE_HANDLE h)
         ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
         if ( ret < 0)
             *safe_io << "remove handler failed", safe_io->flush();
-        ret = this->ace_sock_stream->close();
-        if ( ret < 0)
-            *safe_io << "close socket failed", safe_io->flush();
         *safe_io << "reader remove self", safe_io->flush();
         return EXIT_FAILURE;
     }
@@ -112,9 +109,14 @@ reader_service::parse_receive_msg(std::string msg)
             uint id;
             if (ss >> id)
             {
+                int ret;
+                ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
+                if ( ret < 0)
+                    *safe_io << "remove handler failed", safe_io->flush();
+                *safe_io << "reader remove self", safe_io->flush();
                 this->producer_.menu.clean_with_id(id);
+                this->producer_.id_socket_map.erase(this->producer_.id_socket_map.find(id));
                 this->ace_sock_stream->close();
-                this->cleared = true;
             }
         }
     }
@@ -128,12 +130,10 @@ reader_service::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
     if ( mask & READ_MASK )
     {
         *safe_io << "with READ_MASK\n";
-        // if ( this->has_not_released )
-        // {
-            *safe_io << "try to delete this";
-            delete this;
-        // }
+        *safe_io << "try to delete this, id: " << this->id;
+        safe_io->flush();
+        //this->producer_.menu.clean_with_id(this->id);
+        delete this;
     }
-    safe_io->flush();
     return EXIT_SUCCESS;
 }

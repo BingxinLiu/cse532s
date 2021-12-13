@@ -113,10 +113,11 @@ reader_service::parse_receive_msg(std::string msg)
                 ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
                 if ( ret < 0)
                     *safe_io << "remove handler failed", safe_io->flush();
-                *safe_io << "reader remove self", safe_io->flush();
                 this->producer_.menu.clean_with_id(id);
                 this->producer_.id_socket_map.erase(this->producer_.id_socket_map.find(id));
                 this->ace_sock_stream->close();
+                *safe_io << this->producer_.menu.str();
+                safe_io->flush();
             }
         }
     }

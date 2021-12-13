@@ -113,7 +113,6 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
 void 
 Play::enter(unsigned int scene_index) 
 {
-    *safe_io << "PLAYER " << this_thread::get_id() <<  " enter with " << scene_index, safe_io->flush();
     unique_lock<mutex> lock(this->scene_fragment_counter_mutex);
     // if the passed value is less than the scene_fragment_counter member variable, the method should simply fail (by returning a non-zero error code, or throwing an exception, etc.); 
     if ( scene_index < this->scene_fragment_counter )
@@ -167,9 +166,7 @@ Play::exit()
         // then (a) decrements the on_stage member variable, 
         this->on_stage_member_num--;
         // (b) increments the scene_fragment_counter member variable, 
-        *safe_io << this->scene_fragment_counter, safe_io->flush();
         this->scene_fragment_counter++;
-        *safe_io << this->scene_fragment_counter, safe_io->flush();
         // (c) if the iterator member variable is not already past the end of the container of scene titles prints out the string the iterator member variable currently references if that string is non-empty and then (whether or not the string was empty) increments the iterator member variable, 
 
         // reset line counter

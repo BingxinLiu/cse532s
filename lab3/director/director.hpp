@@ -23,12 +23,6 @@ class director : public ACE_Event_Handler
     ACE_SOCK_Stream* ace_sock_stream;
 
     size_t min_players = 0;
-    
-
-    // size_t parse_script_files(const std::vector<std::string>& scripts_filename, plays& plays_);
-    // size_t parse_play_script_file(const std::string& script_filename, plays& plays);
-    // size_t parse_scene_script_file(const std::string& scene_filename, fragments& fragments_);
-    // size_t parse_fragment_script_file(const std::string& fragment_filename, characters& characters_);
 
     // vector for each scene name
     std::map<play_name, std::vector<scene_name>> scenes_names;

@@ -57,7 +57,6 @@ director::regis_self()
     ss << "[director_id] " << this->director_id;
     if (ace_sock_stream->send_n(ss.str().c_str(), ss.str().length()+1) < 0 )
         std::cout << "Error: Can not send [director_id:0]" << std::endl;
-    //ace_sock_stream.close();
     *safe_io << "SEND [" << ss.str() << "]", safe_io->flush();
 }
 
@@ -85,16 +84,12 @@ director::get_handle() const
 int
 director::handle_input(ACE_HANDLE h)
 {
-    *safe_io << "connect service handle input", safe_io->flush();
     char buffer[BUFFER_SIZE];
     size_t recv_len = 0;
 
-    // TODO: take care of the situation that length is larger than 256
     recv_len = this->ace_sock_stream->recv(&buffer, BUFFER_SIZE);
     if (recv_len <= 0)
     {
-        *safe_io << "The socket is closed.";
-        safe_io->flush();
         int ret;
         ret = ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::NULL_MASK);
         if ( ret < 0)
@@ -102,14 +97,10 @@ director::handle_input(ACE_HANDLE h)
         ret = this->ace_sock_stream->close();
         if ( ret < 0)
             *safe_io << "close socket failed", safe_io->flush();
-        *safe_io << "reader remove self", safe_io->flush();
         return EXIT_FAILURE;
     }
-    
-    *safe_io << "RECV [" << std::string(buffer) << "]", safe_io->flush();
 
     this->parse_receive_msg(std::string(buffer));
-    //this->ace_sock_stream->close();
 
     return EXIT_SUCCESS;
 
@@ -122,14 +113,8 @@ director::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
     if ( mask & READ_MASK )
     {
         *safe_io << "with READ_MASK\n";
-        // // if ( this->has_not_released )
-        // // {
-        //     *safe_io << "try to delete this";
-        //     safe_io->flush();
-        //this->ace_sock_stream->close();
         delete this->ace_sock_stream;
         delete this;
-        // // }
     }
     
     return EXIT_SUCCESS;
@@ -511,72 +496,6 @@ director::start()
 
 director::~director() 
 {}
-
-
-
-
-
-// size_t
-// director::parse_script_files(const std::vector<std::string>& scripts_filename, plays& plays_)
-// {
-//     for (std::vector<std::string>::const_iterator cit = scripts_filename.begin();
-//         cit != scripts_filename.end();
-//         ++cit;
-//     )
-//     {
-//         parse_play_script_file(*cit, plays_);
-//     }
-// }
-
-// size_t
-// director::parse_play_script_file(const std::string& script_filename, plays& plays)
-// {
-//     // check file valid
-//     std::ifstream play_config_file_ifs(script_filename);
-//     if (play_config_file_ifs.good())
-//     {
-//         *safe_io << "ERROR: file " << script_filename << " is bad.", safe_io->flush();
-//     }
-
-//     std::set<scene_name> scene_names;
-//     std::string line = "";
-//     std::string scene_name = "";
-//     size_t current_scene_config_index = 0;
-//     size_t current_fragment_characters_num = 0;
-//     size_t last_fragment_characters_num = 0;
-//     size_t scene_max_characters_num = 0;
-
-//     while(getline(play_config_file_ifs, line))
-//     {
-//         trim(line);
-//         if (line.empty()) continue;
-
-//         // check if the line contains the name of the scene
-//         if (line[0] ==  '[' && \
-//             line.substr(0, delimit_token_offset) == delimit_token)
-//         {
-//             scene_name = trim(line.substr(delimit_token_offset));
-
-//             if (scene_names.find(scene_name))
-//             {
-//                 std::cerr << "WARNING: trying to parse a duplicated sence : " << scene_name << endl;
-//                 continue;
-//             }
-
-//             scene_names.insert(scene_name);
-
-//         } else {
-
-//             current_fragment_characters_num = parse_fragment_script_file(line, plays_[scene_name]);
-//             scene_max_characters_num = max(current_fragment_characters_num, last_fragment_characters_num);
-//             last_fragment_characters_num = current_fragment_characters_num;
-//         }
-//     }
-
-//     return scene_max_characters_num;
-
-// }
-
 
 void
 director::print_configs()

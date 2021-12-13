@@ -135,9 +135,6 @@ ui_service::handle_input(ACE_HANDLE h)
 
         memset(buffer, 0, BUFFER_SIZE);
 
-        //debug
-        std::cout << "???" << std::endl;
-
         return SUCCESS;
     }
     *(threadsafe_io::get_instance()) << "WARNING: UI_SERVICE handle input, but not from stdin.";

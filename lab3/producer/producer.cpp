@@ -91,9 +91,6 @@ producer::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
     if ( (mask & ACCEPT_MASK) && !(mask & SIGNAL_MASK) )
         *safe_io << "handle close with ACCEPT_MASK";
     safe_io->flush();
-
-    // debug
-    std::cout << "??????" << std::endl;
     return SUCCESS;
 }
 

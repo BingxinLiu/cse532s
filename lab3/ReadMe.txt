@@ -61,11 +61,48 @@ Structure of the dirctory:
 In this lab, there are 2 main program: prodeucer and director. Prodeucer has the responsibility to control UI and connect with directors. Director has the duty to register their available plays, and play plays when it has to.
 
 2.1 Design of the Director program
-The program will first parse its command line arguments like what we did in lab2, except that the director will also establish a connection with the Producer. After the connection established, the director will send '[director_id] 0' to the producer. Then the producer will return a unique id for this director as its id. Then the director reactively listen from the producer, if the producer send star, stop, quit command, it will reponse respectively.
+
+In the main function of the dirctor program, we will fist parse its command line arguments like what we did in lab2. Then we get an instance of director object and register it as a ACE Event handler. Finally we launch the event loop and waiting until the loop stopped.
+
+The director will first parse those config files like what we did in lab2, except that the director will also establish a connection with the Producer via ACE_SOCK_Connector. After the connection established, the director will send '[director_id] 0' to the producer. Then the producer will return a unique id for this director as its id. Then the director reactively listen from the producer, if the producer send star, stop, quit command, it will reponse respectively.
+
+    1. If the producer send back the id, the director instance will set its director_id member with it, so that the director get its own unique id.
+
+    2. If the director get the start command it will start the play, which means it will set the play name and its need configuration files, and recruit enough players, and finally start the play like what we did in the lab2.
+
+    3. If the director get the stop command, it will set the play object's finished flag and notify all of the waiting/playing players, so that the players will notice that change and exit from the stage and/ or exit from the play.
+
+    4. The responding for quit command is pretty the same as the stop command. The director will set the finished flag and notify players. Then, it will send a confirm message back to the producer, so that producer can release itself when every director quited. After that, the director will stop the event loop and release the sources it hold.
+
+Note, the director will also set the finshed flag, notify players, send a quit confirm message to producer, and finially release itself when the user hit Ctrl-C, as what it will do when it receive quit command.
 
 2.2 Design of the Producer program
 
-The program will frist listen to a specific port. it provide three service class which are inherited from ACE_Event_Handler. The first one is UI service, it will listen on standard input, parse the command, and let the producer send messages to corresponding socket, which will end up with reaching one director. Also, the ui_service will provide a new menu each time the play started/stopped/finished or new director connected with its new supported plays. The second one is producer(class) service, which is similar as an acceptor in Connector/Acceptor mode. It accept a connection request, establish the connection and a reader service, which will be used as a receiver for director's message. The third one is reader service, it is built by the producer whenever it receive and establish a connection with the director. After that, the reader will on behalf of the producer to do all the communication. It will send messages to director and recieve and parse the message coming from the director and let the producer do it things. 
+The main function of the producer program will also parse the command line arguments at first. Then it will launch a ACE_SOCK_Acceptor to listenning on the assigned port. After that, a producer class instance will be established and accept the existed connector as its own connecter. Now, we can register the producer instance as an ACE Event handler for connections and signal (Ctrl-C), and we can launch the reactor event loop to reponse directors and user's signal reactively.
+
+The producer program provides three service class which are inherited from ACE_Event_Handler.
+
+The first one is UI service, it will listen on standard input, parse the command, and let the producer send messages to corresponding socket, which will end up with reaching one director. Also, the ui_service will provide a new menu each time the play started/stopped/finished or new director connected with its new supported plays. The instance of producer object will first establish a UI serice instance and register it into the reactor event loop. For those commands comming from user interface:
+
+    1. if user shoot a start command, the ui service will first get the play via the input index, then it will find an available director from its menu, which is eastablished and updated during communicating with directors. If ever find an available one, it will update the menu for user and send message for that director to let it play the play.
+
+    2. if user want quit a play, the ui service will check its menu and find a director that is playing the play, and send a message to it to let the director stop.
+
+    3. if the user want to leave, they will send quit command. Then the ui service will first remove it self from the event loop. This is because we don't want to listenning on user's input anymore. We can not just stop the event loop because we want reader service, which is used to listenning on directors' message, continue its services, so that we can know when we can release all of the resources. Then, the ui service will let the producer send a quit message to all of directors which have registered itself in the producer. After that, we launch a new thread to wait on the condition that all of the directors have left. Then we stop the event loop and release all of the resources.
+
+The second one is producer(class) service, which is similar as an acceptor in Connector/Acceptor mode. It accept a connection request, establish the connection and hand over the connection to a new established reader service, which will be used as a receiver for director's message.
+
+The third one is reader service, it is built by the producer whenever it receive and establish a connection with the director. After that, the reader will on behalf of the producer to do all the communication with this specific director. It will send messages to director and recieve and parse the message coming from the director and let the producer do it things. For those messages comming from directors:
+
+    1. if the director send a message of "[director_id] 0", the producer will send back the id the producer assigned to it, so that the director as the director's unique id, which is the same as the reader_service's id. After that, the UI service and the producer know the map relation between id and director.
+
+    2. if the director send a message to register one of its supported plays in the form of "[PLAY] ***". The reader will let the producer register the play with its id and play name. Then the producer will refresh the menu to the user.
+
+    3. if the producer received a started confirm message, it will change the status of that director from UNCLEAR to UNAVAILABLE, which is the side effect of a user shooting start command.
+
+    4. if the producer received a stopped confirm message, it will set the status of that director as AVAILABLE and refresh the menu. Note, only available director will appear on the menu.
+
+    5. if receiving a quit comfirm message, the reader service will first remove itself from the reactor loop. Then it will remove the director record corresponding to itself from the menu and erase itself from the map mapping the director id and its socket. After that, the producer will be no longer aware of the exist of this service handler, so that it can remove itself and release resouces.
 
 2.3 Design of some helper functions and datastructures
 
@@ -77,9 +114,10 @@ I found the singleton mode is quite useful when working with I/O (basically just
 
 A map structure consist of all of plays related information coming from dirctors. Its key is each director's id and its value is a pair of the dirctors status and its available plays. We support that more than one director can play a same name play, but we do not support a single director play two plays at the same time.
 
+If it is the time to refresh the menu, the menu will collect all of plays with its available directors according to the record in its datastructures. A director with UNCLEAR or UNAVAILABLE status will not be regared as playable.
+
 3.0 NOTE
 
-I use [START], [STOP], [QUIT], as user commands, instead of start, stop, quit.
 I test within a single machine, but it should be ok on different machine due to the reason that linuxlab seems doesn't allow me to expose its port.
 
 
@@ -103,6 +141,8 @@ Reader/Listener: reader service/ director/ ui_service
 - In this lab, I find that the ACE frame help me to simplify the design of the program. But I also find that it is complicated. I have to take care of each step of my program, otherwise the frame will do something I didn't expect.
 
 - It is a good idea to print a lot to find the bug.
+
+- ACE is a wonderful frame but we should take much care about resources releasing and the time stop and close the event handler.
 
 
 =====================================================================================
@@ -136,6 +176,12 @@ run the director program
 or
 - ./main 8086 localhost 10 partial_hamlet_act_ii_script.txt partial_macbeth_act_i_script.txt
 then test with your input in producer.
+
+HERE IS AN ORDER HOW I TEST THE UI:
+1. start all plays with start command
+2. in a director program hit Ctrl-C to see if the program exit correctly, and in the producer program it should never show up.
+3. in the producer program hit stop and then start teh same play to see if everything is ok.
+4. Then hit quit or Ctrl-C to test if the producer and directors can be stopped correctly.
 
 NOTE: the director directory has all of files needed to read for above two command.
 ====================================== END ==========================================

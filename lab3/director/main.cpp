@@ -37,14 +37,15 @@ main(int argc, char* argv[])
         for (int i = args::SCRIPT_FILES; i < argc; ++i)
         {
             scripts_filename.push_back(argv[i]);
-            std::cout << "[ADD NEW SCRIPT]" << scripts_filename.back() << std::endl;
+            if (DEBUG)
+                std::cout << "[ADD NEW SCRIPT]" << scripts_filename.back() << std::endl;
         }
 
         director_ = new director(port, ip_address, min_threads, scripts_filename);
 
     } catch (std::exception &e)
     {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "EXCEPTION in main of director " << e.what() << std::endl;
         return EINVAL;
     }
 
@@ -52,6 +53,8 @@ main(int argc, char* argv[])
     director_->regis_self();
 
     ACE_Reactor::instance()->run_reactor_event_loop();
+
+    *safe_io << "DIRCTOR STOPPED", safe_io->flush();
 
     return SUCCESS;
 

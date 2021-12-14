@@ -23,10 +23,13 @@ const std::string delimit_token = "[scene]";
 const size_t delimit_token_offset = delimit_token.size();
 #endif
 
+#define DEBUG 0
+#define SLOW 1
+
 #define ID_COMMAND "[director_id]"
-#define START_COMMAND "[START]"
-#define STOP_COMMAND "[STOP]"
-#define QUIT_COMMAND "[QUIT]"
+#define START_COMMAND "start"
+#define STOP_COMMAND "stop"
+#define QUIT_COMMAND "quit"
 
 #define REG_PLAY_COMMAND "[PLAY]"
 #define STARTED_CONFIRM "[STARTED]"

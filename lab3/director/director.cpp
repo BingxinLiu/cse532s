@@ -11,6 +11,8 @@
 
 #include "../utilities/utilities.hpp"
 
+// constructe a director
+// which is working as a connector
 director::director(u_short port, std::string ip_address, int min_threads, std::vector<std::string> scripts_filename)
 {
     size_t scenes_max_charactors_num = 0;
@@ -24,7 +26,8 @@ director::director(u_short port, std::string ip_address, int min_threads, std::v
 
     this->min_players = max((size_t)min_threads, scenes_max_charactors_num);
 
-    this->print_configs();
+    if (DEBUG)
+        this->print_configs();
 
     *safe_io << "Parsing plays config files done...", safe_io->flush();
     
@@ -48,6 +51,9 @@ director::director(u_short port, std::string ip_address, int min_threads, std::v
     safe_io->flush();
 }
 
+
+// register self as a event handler
+// also send the register message to the producer to get a id
 void
 director::regis_self()
 {
@@ -57,9 +63,12 @@ director::regis_self()
     ss << "[director_id] " << this->director_id;
     if (ace_sock_stream->send_n(ss.str().c_str(), ss.str().length()+1) < 0 )
         std::cout << "Error: Can not send [director_id:0]" << std::endl;
-    *safe_io << "SEND [" << ss.str() << "]", safe_io->flush();
+    if (DEBUG)
+        *safe_io << "SEND [" << ss.str() << "]", safe_io->flush();
 }
 
+
+// Register supported plays for producer
 void
 director::send_play_list()
 {
@@ -81,6 +90,7 @@ director::get_handle() const
     return this->ace_sock_stream->get_handle();
 }
 
+// listen and parse received message from producer
 int
 director::handle_input(ACE_HANDLE h)
 {
@@ -106,13 +116,26 @@ director::handle_input(ACE_HANDLE h)
 
 }
 
+// handle close, release resources.
 int
 director::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
 {
-    *safe_io << "handle close in reader ", safe_io->flush();
+    if (DEBUG)
+        *safe_io << "handle close in reader ", safe_io->flush();
     if ( mask & READ_MASK )
     {
-        *safe_io << "with READ_MASK\n";
+        if (DEBUG)
+            *safe_io << "with READ_MASK\n";
+        while (!this->play->finished)
+        {
+            this_thread::yield();
+        }
+        if (DEBUG)
+            *safe_io << "This play has stopped", safe_io->flush();
+        this->players.clear();
+        if (DEBUG)
+            *safe_io << "All players have left.", safe_io->flush();
+        
         delete this->ace_sock_stream;
         delete this;
     }
@@ -120,6 +143,8 @@ director::handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask)
     return EXIT_SUCCESS;
 }
 
+// handle user Ctrl-C signal
+// sned confirm message and close self
 int
 director::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
 {
@@ -130,12 +155,15 @@ director::handle_signal(int signal, siginfo_t* sig, ucontext_t* ucontx)
     std::stringstream ss;
     ss << QUIT_CONFIRM << " " << this->get_id();
     this->send_msg(ss.str());
-    std::cout << "SEND [" << ss.str() << "]" << std::endl;
+    if (DEBUG)
+        std::cout << "SEND [" << ss.str() << "]" << std::endl;
     ACE_Reactor::instance()->end_event_loop();
     ACE_Reactor::instance()->close();
     return EXIT_SUCCESS;
 }
 
+// parse play file
+// return the maximum number of players in a scene
 size_t
 director::parse_play_file(const std::string& play_config_file_name)
 {
@@ -146,13 +174,16 @@ director::parse_play_file(const std::string& play_config_file_name)
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        std::cerr << "EXCEPTION in parse_play_file" << e.what() << '\n';
     }
     
     
     return max_characters_in_scenes;
 }
 
+// parse each fragment's config file
+// record them into configs
+// return the maximum number of players in a fragment
 size_t
 director::parse_script_file(const std::string& play_config_file_name, const std::string& script_config_file_name, size_t part_config_index)
 {
@@ -198,6 +229,9 @@ director::parse_script_file(const std::string& play_config_file_name, const std:
     return character_names.size();
 }
 
+// parse each scene's config files
+// recorde fragments info into configs
+// return the maximum number of players in a scene
 size_t
 director::parse_config_file(const string& scene_config_file_name)
 {
@@ -276,6 +310,7 @@ director::parse_config_file(const string& scene_config_file_name)
     return max_scene_characters_num;
 }
 
+// parse received message. Do corresponding operation
 void
 director::parse_receive_msg(std::string str)
 {
@@ -285,6 +320,7 @@ director::parse_receive_msg(std::string str)
 
     if (ss >> command)
     {
+        // GET id, then send play lists
         if (command == ID_COMMAND)
         {
             uint id;
@@ -294,6 +330,9 @@ director::parse_receive_msg(std::string str)
                 this->send_play_list();
             }
         }
+        
+        // GET start command
+        // get the play name, recruite players, and start play
         if (command == START_COMMAND)
         {
             std::string playname;
@@ -304,6 +343,9 @@ director::parse_receive_msg(std::string str)
                 this->start_play(playname, this->min_players);
             }
         }
+
+        // GET stop command
+        // set the play as finished, notify all players to leave
         if (command == STOP_COMMAND)
         {
             std::string playname;
@@ -317,9 +359,14 @@ director::parse_receive_msg(std::string str)
                 std::stringstream ss;
                 ss << STOPPED_CONFIRM << " " << this->get_id() << " " << playname;
                 this->send_msg(ss.str());
-                std::cout << "SEND [" << ss.str() << "]" << std::endl;
+                if (DEBUG)
+                    std::cout << "SEND [" << ss.str() << "]" << std::endl;
             }
         }
+
+        // GET quit command
+        // set the play as finished, notify all players to leave
+        // stop the event loop, close self, and release resources
         if (command == QUIT_COMMAND)
         {
             std::string str;
@@ -328,7 +375,8 @@ director::parse_receive_msg(std::string str)
                 *safe_io << "WARNING: remaining commad: " << str;
                 safe_io->flush();
             }
-            *safe_io << QUIT_COMMAND;
+            if (DEBUG)
+                *safe_io << QUIT_COMMAND;
             safe_io->flush();
             if (this->play != nullptr)
             {
@@ -338,7 +386,8 @@ director::parse_receive_msg(std::string str)
             std::stringstream ss;
             ss << QUIT_CONFIRM << " " << this->get_id();
             this->send_msg(ss.str());
-            std::cout << "SEND [" << ss.str() << "]" << std::endl;
+            if (DEBUG)
+                std::cout << "SEND [" << ss.str() << "]" << std::endl;
             ACE_Reactor::instance()->end_event_loop();
             ACE_Reactor::instance()->close();
         }
@@ -348,22 +397,30 @@ director::parse_receive_msg(std::string str)
     }
 }
 
+// send message via asc_sock_stream
 void
 director::send_msg(const std::string msg)
 {
     this->ace_sock_stream->send_n(msg.c_str(), msg.length() + 1);
 }
 
+// construct instance of play
+// recruit needed players
+// and start to play
+// finally send a startted confirm message to producer
 void
 director::start_play(std::string playname, uint player_num)
 {
     this->config = this->configs[playname];
 
-    *safe_io << "START TO PLAY\n";
-    *safe_io << this->config_to_str();
-    *safe_io << this->scenes_names_to_str(playname);
-    safe_io->flush();
-
+    if (DEBUG)
+    {
+        *safe_io << "START TO PLAY\n";
+        *safe_io << this->config_to_str();
+        *safe_io << this->scenes_names_to_str(playname);
+        safe_io->flush();
+    }
+    
     this->play = make_shared<Play>(this->config, this->scenes_names[playname], *this, playname);
 
     this->recruit(this->min_players);
@@ -375,6 +432,9 @@ director::start_play(std::string playname, uint player_num)
     this->send_msg(ss.str());
 }
 
+// FOR test purpose
+// construct a stringstream of configs
+// return a string formatted configs
 std::string
 director::config_to_str()
 {
@@ -395,6 +455,9 @@ director::config_to_str()
     return ss.str();
 }
 
+// FOR test purpose
+// construct a stringstream of scenes_names
+// return a string formatted scenes_names
 std::string
 director::scenes_names_to_str(std::string playname)
 {
@@ -411,7 +474,7 @@ director::scenes_names_to_str(std::string playname)
 
 
 
-
+// recruit enough players
 void
 director::recruit(size_t player_num)
 {
@@ -423,6 +486,7 @@ director::recruit(size_t player_num)
     }
 }
 
+// assign each players with its job in a fragment
 void 
 director::cue(unsigned int frag_index)
 {
@@ -447,16 +511,20 @@ director::cue(unsigned int frag_index)
         }
         // set the character and job to a player
         (*players_it)->input_file_name = (*it).second;
-        *safe_io << "INPUT FILE :" << (*it).second, safe_io->flush() ;
+        if (DEBUG)
+            *safe_io << "INPUT FILE :" << (*it).second, safe_io->flush() ;
         (*players_it)->current_scene_index = frag_index;
-        *safe_io << "CURRENT SCENE IDEX :" << frag_index, safe_io->flush() ;
+        if (DEBUG) 
+            *safe_io << "CURRENT SCENE IDEX :" << frag_index, safe_io->flush() ;
         (*players_it)->character = (*it).first;
-        *safe_io << "CHARACTER :" << (*it).first, safe_io->flush() ;
+        if (DEBUG)
+            *safe_io << "CHARACTER :" << (*it).first, safe_io->flush() ;
+        
         {
             lock_guard<mutex> lock((*players_it)->ready_to_read_mutex);
             (*players_it)->ready_to_read = true;
-
         }
+
         (*players_it)->ready_to_read_cv.notify_all();
         players_it++;
     }
@@ -476,6 +544,8 @@ director::cue(unsigned int frag_index)
 
 }
 
+// wait for players become ready
+// start the player who should recite first.
 void
 director::start()
 {
@@ -492,11 +562,18 @@ director::start()
     
     // notify one player so that it can be the leader
     this->play->needed_player_cv.notify_one();
+
+    // std::thread t = std::thread([this](){
+        
+    // });
+    // t.detach();
 }
 
 director::~director() 
 {}
 
+// FOR test purpose
+// print configs
 void
 director::print_configs()
 {

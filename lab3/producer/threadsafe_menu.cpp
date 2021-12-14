@@ -2,6 +2,11 @@
 #include <utility>
 #include "threadsafe_menu.hpp"
 
+// construct a string for this menu for UI service or the need to print out the menu
+// format:
+/*
+Index   Name    Status[availabe numbers]
+*/
 const std::string
 threadsafe_menu::str()
 {
@@ -13,7 +18,8 @@ threadsafe_menu::str()
         mit != this->menu.end();
         ++mit)
     {
-        *safe_io << "ID" << mit->first << " STATUS " << mit->second.first;
+        if (DEBUG)
+            *safe_io << "ID" << mit->first << " STATUS " << mit->second.first;
         for (play_names_type::iterator nit = mit->second.second.begin();
             nit != mit->second.second.end();
             nit++)
@@ -53,7 +59,7 @@ threadsafe_menu::str()
     return ss.str();
 }
 
-
+// register a play into the menu
 void
 threadsafe_menu::reg_play(play_name play_name_, director_id id)
 {
@@ -68,6 +74,7 @@ threadsafe_menu::reg_play(play_name play_name_, director_id id)
     }
 }
 
+// pop a director's id that can play the specified play
 uint
 threadsafe_menu::pop_avaliable(play_name play_name_)
 {
@@ -94,6 +101,7 @@ threadsafe_menu::pop_avaliable(play_name play_name_)
     return NONE;
 }
 
+// pop a busy director's id that palying the specified play
 uint
 threadsafe_menu::pop_busy_play(play_name play_name_)
 {
@@ -119,7 +127,9 @@ threadsafe_menu::pop_busy_play(play_name play_name_)
     return NONE;
 }
 
+// NOTE: we have a gray area that play/stop command sent but have not received reply. This status we call it as UNCLEAR
 
+// set the director as idle with id
 void 
 threadsafe_menu::set_idle_with_id(uint id)
 {
@@ -134,6 +144,7 @@ threadsafe_menu::set_idle_with_id(uint id)
     }
 }
 
+// set the director as busy with id
 void 
 threadsafe_menu::set_busy_with_id(uint id)
 {
@@ -148,6 +159,7 @@ threadsafe_menu::set_busy_with_id(uint id)
     }
 }
 
+// clear a director's record in this menu
 void
 threadsafe_menu::clean_with_id(uint id)
 {
@@ -156,6 +168,8 @@ threadsafe_menu::clean_with_id(uint id)
         this->menu.erase(this->menu.find(id));
 }
 
+// check if the menu is empty
+// return the number of exist directors
 size_t
 threadsafe_menu::is_empty()
 {
@@ -163,6 +177,7 @@ threadsafe_menu::is_empty()
     return this->menu.size();
 }
 
+// get the play name according to the index of the menu
 play_name
 threadsafe_menu::operator[](uint offset)
 {

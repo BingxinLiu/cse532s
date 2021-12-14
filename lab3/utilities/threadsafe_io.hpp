@@ -7,6 +7,7 @@
 #ifndef THREADSAFE_IO_HPP
 #define THREADSAFE_IO_HPP
 
+// a singleton mode thread safe io.
 class threadsafe_io
 {
     std::ostream& os_ = std::cout;

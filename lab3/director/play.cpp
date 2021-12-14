@@ -31,7 +31,8 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
 {
     unique_lock<mutex> lock(this->recite_mutex);
     //debug
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (SLOW)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // While the scene_fragment_counter member variable is less than the passed scene fragment number, or is equal but the line_counter member variable is less than the line number in the structured line referenced by the passed iterator, the recite method should repeatedly wait on a condition variable, until the line_counter and scene_fragment_counter member variables reach the values given in the the corresponding passed data.
     if ( this->scene_fragment_counter <= current_scene )
@@ -47,6 +48,7 @@ Play::recite(std::map<unsigned int, Structured_line>::const_iterator& it, unsign
             if (this->finished)
             {
                 this->recite_condv.notify_all();
+                this->needed_player_cv.notify_all();
                 return;
             }
         }
@@ -119,7 +121,7 @@ Play::enter(unsigned int scene_index)
     {
         lock.unlock();
         cerr << "ERROR: trying to enter a finished scene" << scene_index << " " << this->scene_fragment_counter << endl;
-        throw invalid_argument("");
+        throw invalid_argument("trying to enter a finished scene");
     }
 
     // if the passed value is equal to the scene_fragment_counter member variable, the method should increment the on_stage member variable and return; 

@@ -15,13 +15,18 @@
 class Player;
 class Play;
 
+
+// A class on behalf of playing and communicate with producer
 class director : public ACE_Event_Handler
 {
 
+    // director_id, which should be assigned from producer
     unsigned int director_id = 0;
 
+    // socket wrapper used to communicate with producer
     ACE_SOCK_Stream* ace_sock_stream;
 
+    // current scene's minimum players
     size_t min_players = 0;
 
     // vector for each scene name
@@ -35,6 +40,8 @@ class director : public ACE_Event_Handler
     void recruit(size_t player_num);
     ~director();
 public:
+
+    // all of supported plays configuration
     std::map<play_name, Config_struct> configs;
 
     // keep tracking the current playing configuration
@@ -51,11 +58,13 @@ public:
     // start the first scene
     void start();
 
+    // functions as a evnet handler
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
     virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);
     virtual int handle_signal(int signal, siginfo_t* = 0, ucontext_t* = 0);
 
+    // helper functions
     void regis_self();
     void send_play_list();
     void print_configs();
@@ -63,9 +72,11 @@ public:
     void send_msg(const std::string msg);
     unsigned int get_id() {return this->director_id;};
 
+    // functions related to play
     void start_play(std::string playname, uint player_num);
     void stop_play();
 
+    // functions for testing
     std::string config_to_str();
     std::string scenes_names_to_str(std::string playname);
 };

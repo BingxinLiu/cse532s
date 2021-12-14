@@ -25,19 +25,31 @@ class reader_service;
  */
 class producer : public ACE_Event_Handler
 {
+    // a static member used to assign id to director
     static uint director_id;
+
+    // a pointer pointing to ui_service
     ui_service* ui_srv = nullptr;
+
+    // producer's acceptor
     ACE_SOCK_Acceptor& acceptor;
 public:
+
+    // record for director and ace_sock_stream map
+    // will use the size to indicate whether all of directors have quited
     std::map<uint, ACE_SOCK_Stream*> id_socket_map;
+    
+    // menu, record each director supported plays
     threadsafe_menu menu;
     producer(ACE_SOCK_Acceptor acceptor);
     ~producer();
 
+    // function for communicate with director
     void send_msg(uint id, const std::string str);
     void send_quit_all();
     void wait_for_quit();
 
+    // functions for event handler
     virtual ACE_HANDLE get_handle() const;
     virtual int handle_input(ACE_HANDLE h = ACE_INVALID_HANDLE);
     virtual int handle_close(ACE_HANDLE handle, ACE_Reactor_Mask mask);

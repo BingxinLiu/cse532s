@@ -38,11 +38,8 @@ Player::start_working()
             // turn self to be a follower
             this->enter();
 
-        }
-
-        
+        } 
     }
-
 }
 // check if its time to go
 bool
@@ -104,7 +101,7 @@ Player::assign_work_to_follower()
     } 
     catch(const std::exception& e)
     {
-        cerr << e.what() << '\n';
+        cerr << "EXCEPTION when leader try to cure"<< e.what() << '\n';
     }
 
 }
@@ -238,7 +235,7 @@ Player::enter()
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        std::cerr << "EXCEPTION in player try to exit " << e.what() << '\n';
     }  
      
 }
